@@ -1,0 +1,45 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { PGlite } from '@electric-sql/pglite';
+import { applyPlaceAction, validatePlacePayload } from '../lib/places.mjs';
+const candidate = { region: '서울', name: '성수 카페', address: '서울 성동구 성수동', url: 'https://naver.me/example' };
+test('place validation rejects unsafe links; demo votes replace and lock', () => {
+  for (const url of ['javascript:alert(1)', 'https://naver.me.evil.com/x', 'https://naver.me@evil.com/x']) assert.throws(() => validatePlacePayload('place-add', { ...candidate, url }));
+  let state = { members: [{ id: 'a' }], me: 'a', confirmed: null };
+  assert.throws(() => applyPlaceAction(state, 'region-vote', { region: '서울' }), /먼저/);
+  state.confirmed = '2027-01-01|10:00';
+  state = applyPlaceAction(state, 'region-vote', { region: '서울' });
+  state = applyPlaceAction(state, 'region-vote', { region: '대전' });
+  assert.deepEqual(state.regionVotes, { a: '대전' });
+  state = applyPlaceAction(state, 'place-add', candidate, 'p');
+  state = applyPlaceAction(state, 'place-vote', { id: 'p' });
+  state = applyPlaceAction(state, 'place-confirm', { id: 'p' });
+  assert.throws(() => applyPlaceAction(state, 'region-vote', { region: '서울' }), /취소/);
+  assert.equal(applyPlaceAction(state, 'place-unconfirm', {}).confirmedPlace, null);
+});
+test('database persists place workflow, authenticates and clears place confirmation with time', async () => {
+  const db = new PGlite();
+  try {
+    await db.exec('create role anon; create role authenticated; create role service_role;');
+    await db.exec(await readFile(new URL('../supabase.sql', import.meta.url), 'utf8'));
+    const call = async (action, payload = [], token = 'a', slot = null) => (await db.query('select meeting_action($1,$2,$3,$4,$5::jsonb,$6) as s', ['places', action, token, token, JSON.stringify(payload), slot])).rows[0].s;
+    const joined = await call('join'); await call('join', [], 'b');
+    await assert.rejects(call('region-vote', { region: '서울' }), /먼저/);
+    await call('save', ['2027-01-01|10:00']); await call('confirm', [], 'a', '2027-01-01|10:00');
+    await assert.rejects(call('place-add', candidate, 'forged'), /참여/);
+    await call('region-vote', { region: '서울' });
+    const region = await call('region-vote', { region: '대전' });
+    assert.equal(region.regionVotes[joined.me], '대전');
+    const added = await call('place-add', candidate); const id = added.places[0].id;
+    await call('place-vote', { id }); await call('place-vote', { id }, 'b');
+    assert.equal(Object.keys((await call('read')).placeVotes).length, 2);
+    await assert.rejects(call('place-confirm', { id: 'missing' }), /후보/);
+    assert.equal((await call('place-confirm', { id })).confirmedPlace, id);
+    await assert.rejects(call('place-add', candidate), /취소/);
+    assert.equal((await call('place-unconfirm')).confirmedPlace, null);
+    await call('place-confirm', { id });
+    assert.equal((await call('unconfirm')).confirmedPlace, null);
+    assert.equal((await call('read')).places.length, 1);
+  } finally { await db.close(); }
+});

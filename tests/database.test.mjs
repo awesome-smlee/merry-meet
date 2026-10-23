@@ -1,0 +1,23 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';import {PGlite} from '@electric-sql/pglite';
+test('database: more than five members, anonymous tokens, isolation, save and participant confirmation',async()=>{
+ const db=new PGlite();await db.exec('create role anon;create role authenticated;create role service_role;');await db.exec(await readFile(new URL('../supabase.sql',import.meta.url),'utf8'));
+ const call=async(action,token,nickname=null,slots=[],slot=null,admin=false)=>(await db.query('select meeting_action($1,$2,$3,$4,$5::jsonb,$6,$7) as s',['test-room',action,token,nickname,JSON.stringify(slots),slot,admin])).rows[0].s;
+ const first=await call('join','token-1','쏘맹');assert.equal(first.members.length,1);assert.ok(first.me);assert.equal(first.members[0].token,undefined);
+ await assert.rejects(call('join','other','쏘맹'),/이미 사용/);await assert.rejects(call('read','forged'),/참여 정보/);
+ for(let i=2;i<=5;i++)await call('join','token-'+i,'친구'+i);
+ const sixth=await call('join','token-6','친구6');assert.equal(sixth.members.length,6);
+ const slot='2027-01-01|18:00';await call('save','token-1',null,[slot]);const state=await call('save','token-2',null,[]);assert.equal(state.members[0].responded,true);assert.equal(state.members[1].responded,true);assert.equal(state.members[2].responded,false);
+ assert.ok(Number.isFinite(Date.parse(state.members[0].votedAt)));
+ assert.equal(state.members[2].votedAt,undefined);
+ const previousVote=state.members[0].votedAt;
+ assert.equal((await call('read','token-1')).members[0].votedAt,previousVote);
+ const revote=await call('save','token-1',null,[slot]);assert.ok(Date.parse(revote.members[0].votedAt)>=Date.parse(previousVote));
+ await assert.rejects(call('confirm','forged',null,[],slot),/참여 정보/);
+ await assert.rejects(call('unconfirm','forged'),/참여 정보/);
+ await assert.rejects(call('confirm','token-3',null,[],'2027-01-02|18:00'),/응답이 있는 후보/);
+ const confirmed=await call('confirm','token-3',null,[],slot);assert.equal(confirmed.confirmed,slot);
+ await assert.rejects(call('confirm','token-4',null,[],slot),/이미 확정/);
+ await assert.rejects(call('save','token-2',null,[slot]),/확정된 약속/);
+ await call('unconfirm','token-4');await call('save','token-2',null,[slot]);
+ await db.close();
+});
