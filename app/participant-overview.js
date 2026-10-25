@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { CalendarCheck, Users } from 'lucide-react';
+import MemberIdentity from './member-identity';
 
 export default function ParticipantOverview({ members, canIntroduce }) {
   const container = useRef(null);
@@ -55,8 +56,8 @@ export default function ParticipantOverview({ members, canIntroduce }) {
     >
       <div className="overview-stats">
         {[
-          { key: 'all', label: '함께하는 친구', count: members.length, Icon: Users },
-          { key: 'completed', label: '시간 선택 완료', count: completed.length, Icon: CalendarCheck },
+          { key: 'all', label: '전체 참여자', count: members.length, Icon: Users },
+          { key: 'completed', label: '응답 완료', count: completed.length, Icon: CalendarCheck },
         ].map(({ key, label, count, Icon }) => (
           <div key={key}>
             <Icon aria-hidden="true" />
@@ -77,11 +78,11 @@ export default function ParticipantOverview({ members, canIntroduce }) {
       </div>
       {active && (
         <div className="participant-tooltip" id={tooltipId} role="tooltip" data-side={active} onMouseEnter={() => setHovered(active)}>
-          <strong>{active === 'completed' ? '시간 선택을 마친 친구' : '함께하는 친구'} · {shown.length}명</strong>
+          <strong>{active === 'completed' ? '응답한 참여자' : '전체 참여자'} · {shown.length}명</strong>
           {shown.length ? (
-            <ul>{shown.map((member) => <li key={member.id}>{member.nickname}</li>)}</ul>
+            <ul>{shown.map((member) => <li key={member.id}><MemberIdentity member={member} /></li>)}</ul>
           ) : (
-            <p>{active === 'completed' ? '아직 시간을 선택한 친구가 없어요.' : '아직 참여한 친구가 없어요.'}</p>
+            <p>{active === 'completed' ? '아직 응답한 참여자가 없어요.' : '아직 참여자가 없어요.'}</p>
           )}
         </div>
       )}

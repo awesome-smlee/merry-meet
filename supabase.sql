@@ -4,7 +4,7 @@ alter table public.meeting_rooms enable row level security;
 revoke all on public.meeting_rooms from anon, authenticated;
 create or replace function public.meeting_action(p_room text,p_action text,p_token text,p_nickname text default null,p_slots jsonb default '[]'::jsonb,p_slot text default null,p_admin boolean default false)
 returns jsonb language plpgsql security definer set search_path=public as $$
-declare s jsonb; ms jsonb; idx integer; member jsonb; result jsonb; places jsonb; votes jsonb; mid text;
+declare s jsonb; ms jsonb; idx integer; member jsonb; result jsonb; places jsonb; votes jsonb; mid text; selected_votes jsonb;
 begin
  insert into meeting_rooms(id) values(p_room) on conflict do nothing;
  select data into s from meeting_rooms where id=p_room for update;
@@ -16,7 +16,16 @@ begin
   ms:=ms||jsonb_build_array(member);
  else
   if idx is null then raise exception '참여 정보를 찾을 수 없어요. 다시 입장해 주세요.'; end if;
-  if p_action='save' then
+  if p_action='profile' then
+   if coalesce(length(trim(p_nickname)),0) not between 1 and 12 then raise exception '닉네임은 1~12자로 입력해 주세요.'; end if;
+   if coalesce(p_slots->>'avatar','') not in ('cat','dog','bear','rabbit','fox','panda','koala','pig','tiger','lion','frog','penguin') then raise exception '프로필 이미지를 다시 선택해 주세요.'; end if;
+   if exists(select 1 from jsonb_array_elements(ms) with ordinality where ordinality-1<>idx and lower(value->>'nickname')=lower(trim(p_nickname))) then raise exception '이미 사용 중인 닉네임이에요.'; end if;
+   ms:=jsonb_set(ms,array[idx::text,'nickname'],to_jsonb(trim(p_nickname)));
+   ms:=jsonb_set(ms,array[idx::text,'avatar'],p_slots->'avatar');
+  elsif p_action='reset' then
+   select coalesce(jsonb_agg((value - 'votedAt') || jsonb_build_object('slots','[]'::jsonb,'responded',false)),'[]'::jsonb) into ms from jsonb_array_elements(ms);
+   s:=s || jsonb_build_object('confirmed',null,'confirmedPlace',null,'places','[]'::jsonb,'placeVotes','{}'::jsonb,'regionVotes','{}'::jsonb,'resetVersion',gen_random_uuid()::text);
+  elsif p_action='save' then
    if s->'confirmed'<>'null'::jsonb then raise exception '확정된 약속은 수정할 수 없어요.'; end if;
    ms:=jsonb_set(ms,array[idx::text,'slots'],p_slots);ms:=jsonb_set(ms,array[idx::text,'responded'],'true');
    ms:=jsonb_set(ms,array[idx::text,'votedAt'],to_jsonb(clock_timestamp()));
@@ -43,14 +52,16 @@ begin
    elsif p_action in ('place-vote','place-confirm') then
     if not exists(select 1 from jsonb_array_elements(places) where value->>'id'=p_slots->>'id') then raise exception '장소 후보를 다시 선택해 주세요.'; end if;
     if p_action='place-vote' then
-     votes:=coalesce(s->'placeVotes','{}');s:=jsonb_set(s,'{placeVotes}',jsonb_set(votes,array[mid],p_slots->'id'));
+     votes:=coalesce(s->'placeVotes','{}');
+     selected_votes:=jsonb_build_array(p_slots->>'id');
+     s:=jsonb_set(s,'{placeVotes}',jsonb_set(votes,array[mid],selected_votes));
     else s:=jsonb_set(s,'{confirmedPlace}',p_slots->'id'); end if;
    else s:=jsonb_set(s,'{confirmedPlace}','null'); end if;
   elsif p_action<>'read' then raise exception 'Invalid action'; end if;
  end if;
  s:=jsonb_set(s,'{members}',ms);update meeting_rooms set data=s where id=p_room;
  select coalesce(jsonb_agg(value-'token'),'[]') into result from jsonb_array_elements(ms);
- return jsonb_build_object('members',result,'confirmed',s->'confirmed','me',(select value->>'id' from jsonb_array_elements(ms) where value->>'token'=p_token),'places',coalesce(s->'places','[]'),'regionVotes',coalesce(s->'regionVotes','{}'),'placeVotes',coalesce(s->'placeVotes','{}'),'confirmedPlace',s->'confirmedPlace');
+ return jsonb_build_object('members',result,'confirmed',s->'confirmed','me',(select value->>'id' from jsonb_array_elements(ms) where value->>'token'=p_token),'places',coalesce(s->'places','[]'),'regionVotes',coalesce(s->'regionVotes','{}'),'placeVotes',coalesce(s->'placeVotes','{}'),'confirmedPlace',s->'confirmedPlace','resetVersion',s->'resetVersion');
 end;$$;
 revoke all on function public.meeting_action(text,text,text,text,jsonb,text,boolean) from public,anon,authenticated;
 grant execute on function public.meeting_action(text,text,text,text,jsonb,text,boolean) to service_role;

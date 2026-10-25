@@ -1,0 +1,46 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { parseRoomCode, roomName } from '../lib/rooms.mjs';
+import { POST } from '../app/api/rooms/route.js';
+
+test('room codes accept invitations and reject malformed query values', () => {
+  assert.equal(parseRoomCode('  a1b2c3d4e5f60708  '), 'a1b2c3d4e5f60708');
+  assert.equal(parseRoomCode('https://example.com/?room=a1b2c3d4e5f60708'), 'a1b2c3d4e5f60708');
+  for (const input of ['', 'abc', 'a1b2c3d4&select=*', 'https://example.com/', 'javascript:alert(1)']) assert.equal(parseRoomCode(input), '');
+});
+test('room names are optional and bounded', () => {
+  assert.equal(roomName('  '), '우리 모임');
+  assert.equal(roomName('  친구 모임  '), '친구 모임');
+  assert.throws(() => roomName('a'.repeat(41)));
+  assert.throws(() => roomName(null));
+});
+
+test('room API creates distinct rooms and only exposes invitation metadata', async t => {
+  const originalEnv = { ...process.env }, originalFetch = globalThis.fetch;
+  t.after(() => { process.env = originalEnv; globalThis.fetch = originalFetch; });
+  Object.assign(process.env, { SUPABASE_URL: 'https://database.example', SUPABASE_SERVICE_ROLE_KEY: 'server-secret' });
+  delete process.env.MEETING_ID;
+  const rooms = new Map();
+  globalThis.fetch = async (url, options) => {
+    assert.equal(options.headers.apikey, 'server-secret');
+    if (options.method === 'POST') {
+      const room = JSON.parse(options.body);
+      rooms.set(room.id, room);
+      return new Response(null, { status: 201 });
+    }
+    const code = new URL(url).searchParams.get('id').slice(3);
+    return Response.json(rooms.has(code) ? [rooms.get(code)] : []);
+  };
+  const request = (body, origin = 'http://localhost') => new Request('http://localhost/api/rooms', { method: 'POST', headers: { origin }, body: JSON.stringify(body) });
+  const first = await (await POST(request({ action: 'create', name: '' }))).json();
+  const second = await (await POST(request({ action: 'create', name: '친구들' }))).json();
+  assert.notEqual(first.room, second.room);
+  assert.match(first.room, /^[a-f0-9]{16}$/);
+  assert.equal(first.name, '우리 모임');
+  rooms.get(second.room).data.members.push({ nickname: '비공개', token: 'private-token' });
+  const lookup = await (await POST(request({ action: 'lookup', code: second.room }))).json();
+  assert.deepEqual(lookup, { room: second.room, name: '친구들' });
+  assert.equal((await POST(request({ action: 'lookup', code: 'ffffffffffffffff' }))).status, 404);
+  assert.equal((await POST(request({ action: 'create', name: '' }, 'https://other.example'))).status, 403);
+  assert.equal(rooms.size, 2);
+});

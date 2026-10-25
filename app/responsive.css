@@ -1,0 +1,99 @@
+/* Responsive adjustments shared by the scheduling and place flows. */
+@media (max-width: 480px) {
+  .modal.profile-modal { padding: 24px 20px; border-radius: 22px; max-height: calc(100dvh - 24px); }
+  .profile-modal .profile-avatar-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .profile-modal .profile-avatar-grid button { min-width: 44px; min-height: 44px; }
+  .profile-modal .profile-nickname-field { margin-top: 20px; }
+  .profile-modal .profile-nickname-field input { font-size: 16px; }
+  .profile-modal .profile-actions { flex-wrap: wrap; gap: 8px; }
+}
+.card,
+.place-voting-workspace,
+.place-planning-panel,
+.stats-chart-heading > div {
+  min-width: 0;
+}
+.stats-tooltip { max-width: min(260px, 65vw); }
+.stats-tooltip p { margin: 0; line-height: 1.6; }
+.time-modal-footer {
+  position: sticky;
+  bottom: -22px;
+  z-index: 3;
+  margin-top: 16px;
+  padding: 12px 0 max(12px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border);
+  background: #f8fbff;
+}
+.time-modal-footer .primary { margin-top: 0; min-height: 48px; }
+.time-modal-footer .save-status { margin: 0 0 10px; }
+.place-ballot-footer > span { flex: 1 1 180px; }
+.place-result-actions { min-width: 0; }
+.place-result-title > strong { min-width: 0; }
+.place-result-title > span { flex-shrink: 0; }
+
+@media (min-width: 651px) and (max-width: 1024px) {
+  .recommend-options { grid-auto-columns: calc((100% - 14px) / 2); }
+  .place-planning-columns { grid-template-columns: minmax(0, 1fr); }
+  .time-modal { width: min(650px, calc(100vw - 48px)); }
+  .time-modal-footer { bottom: -28px; }
+  .time-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+@media (max-width: 650px) {
+  .skeleton-columns, .skeleton-place-columns { grid-template-columns: minmax(0, 1fr); }
+  .skeleton-recommendation:not(:first-child) { display: none; }
+  .skeleton-recommendation { height: 220px; }
+  .skeleton-metric { height: 84px; }
+  .skeleton-calendar { gap: 6px; }
+  .skeleton-steps { height: 90px; }
+  .skeleton-share { width: 110px; height: 38px; }
+  .meeting-reset-area { padding-top: 20px; }
+  .meeting-reset-area + footer { padding-top: 24px; }
+  .calendar .day > small { font-size: 9px; line-height: 1.4; min-height: 14px; white-space: nowrap; }
+  main, .topbar { padding-inline: 16px; }
+  .card { padding: 22px 16px; }
+  .card h2 { font-size: clamp(17px, 4.6vw, 21px); }
+  .meeting-steps > button { min-width: 0; }
+  .meeting-steps small { line-height: 1.6; overflow-wrap: anywhere; }
+  .meeting-steps > .lucide { flex-shrink: 0; width: 16px; }
+  .time-modal { width: calc(100vw - 24px); padding: 44px 14px 16px; }
+  .time-modal-footer { bottom: -16px; }
+  .time-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+  .time-grid button { min-height: 66px; }
+  .time-actions button { min-height: 44px; padding-inline: 8px; }
+  .modal input, .place-form input { font-size: 16px; }
+  .overlap-metrics { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .overlap-metric { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 14px; }
+  .overlap-metric > span { flex-direction: row; align-items: center; }
+  .overlap-metric strong { grid-column: 2; grid-row: 1 / 3; align-self: center; margin: 0; font-size: 24px; }
+  .overlap-metric p { margin: 0; font-size: 11px; word-break: normal; }
+  .overlap-chart-panel { padding: 16px 8px; border-radius: 16px; }
+  .stats-chart-heading { padding-inline: 4px; }
+  .stats-chart-heading p { line-height: 1.7; }
+  .place-planning-panel, .place-voting-panel { padding: 18px 14px; }
+  .region-options button { min-height: 44px; }
+  .place-ballot-option, .place-result-card { padding: 12px; }
+  .place-ballot-info strong { font-size: 13px; }
+  .place-ballot-footer { align-items: stretch; }
+  .place-ballot-footer > .primary { width: 100%; }
+  .place-result-actions { width: 100%; }
+  .place-result-actions button { padding-inline: 10px; justify-content: center; }
+  .place-voting-tabs { width: 100%; }
+  .place-voting-tabs button { flex: 1; padding-inline: 12px; }
+  .place-draft-list { padding: 14px; }
+  .friend-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .place-confirmed-map iframe { height: 210px; }
+}
+
+@media (max-width: 360px) {
+  main, .topbar { padding-inline: 12px; }
+  .time-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .topbar { flex-wrap: wrap; }
+  .topbar .topbar-share { min-height: 44px; font-size: 11px; }
+  .friend-list { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+  .time-modal { max-height: calc(100dvh - 16px); }
+  .time-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
