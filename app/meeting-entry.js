@@ -138,6 +138,10 @@ export default function MeetingEntry(props) {
         room = parsed && JSON.parse(localStorage.getItem('mm-room:' + parsed) || 'null');
         if (!room) throw Error('해당 모임을 찾을 수 없어요.');
       }
+      if (!props.configured) {
+        room.invitationToken = crypto.randomUUID();
+        localStorage.setItem('mm-demo-invitation:' + room.invitationToken, room.room);
+      }
       if (action === 'create') {
         firstCreation.current = room;
         let canDelete = false;
@@ -149,6 +153,7 @@ export default function MeetingEntry(props) {
         try { localStorage.setItem(createdRoomsKey, JSON.stringify(next)); } catch {}
       }
       const url = new URL(location.href);
+      url.searchParams.delete('invitation');
       url.searchParams.delete('invite');
       url.searchParams.delete('room');
       url.searchParams.delete('join');
@@ -203,11 +208,47 @@ export default function MeetingEntry(props) {
       localStorage.setItem('mm-room:' + testRoom.room, JSON.stringify(testRoom));
     }
     const params = new URLSearchParams(location.search);
+    if (params.has('invitation')) {
+      setScreen('join');
+      const controller = new AbortController();
+      async function resolveInvitation() {
+        try {
+          const invitationToken = params.get('invitation');
+          let target;
+          if (props.configured) {
+            const response = await fetch('/api/rooms', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'resolve-invitation', invitationToken }),
+              signal: controller.signal,
+            });
+            const data = await response.json();
+            if (!response.ok) throw Error(data.error || '초대 링크를 확인하지 못했어요.');
+            target = data.room;
+          } else {
+            target = localStorage.getItem('mm-demo-invitation:' + invitationToken);
+            if (!target || !localStorage.getItem('mm-room:' + target) || localStorage.getItem(deletionPrefix + target)) {
+              throw Error('체험 모임의 초대 링크는 모임을 만든 브라우저에서만 열 수 있어요.');
+            }
+          }
+          if (!target || parseRoomCode(target) !== target) throw Error('올바르지 않은 초대 링크예요.');
+          if (!controller.signal.aborted) {
+            setInvitedRoom(target);
+            setCode(target);
+          }
+        } catch (error) {
+          if (!controller.signal.aborted) setMessage(error.message);
+        } finally {
+          if (!controller.signal.aborted) setInitializing(false);
+        }
+      }
+      void resolveInvitation();
+      return () => controller.abort();
+    }
     let savedRoom = '';
     try { savedRoom = sessionStorage.getItem(activeRoomKey) || ''; } catch {}
     const { invitation, target, legacy, joinOnly } = roomEntry(location.search, savedRoom);
-    // Keep invitation links intact so the code survives a refresh before entry.
-    if (legacy && !invitation) {
+    // Remove room codes from old links; new links retain only an opaque token.
+    if (legacy) {
       const cleanUrl = new URL(location.href);
       cleanUrl.searchParams.delete('invite');
       cleanUrl.searchParams.delete('room');
@@ -249,6 +290,7 @@ export default function MeetingEntry(props) {
   function createMeeting() {
     firstCreation.current = null;
     const url = new URL(location.href);
+    url.searchParams.delete('invitation');
     url.searchParams.delete('room');
     url.searchParams.delete('invite');
     url.searchParams.delete('meeting');
@@ -262,7 +304,7 @@ export default function MeetingEntry(props) {
     setSelected(null);
   }
   if (initializing) return <MeetingSkeleton />;
-  if (selected) return <FirstEntryBoundary key={selected.room} onFailure={recoverFirstEntry}><Meeting {...props} roomCode={selected.room} roomName={selected.name} createdRooms={createdRooms} onCreateMeeting={createMeeting} onDeleteMeeting={deleteMeeting} onInitialEntryComplete={completeFirstEntry} animateJoin={animateJoin} /></FirstEntryBoundary>;
+  if (selected) return <FirstEntryBoundary key={selected.room} onFailure={recoverFirstEntry}><Meeting {...props} roomCode={selected.room} invitationToken={selected.invitationToken} roomName={selected.name} createdRooms={createdRooms} onCreateMeeting={createMeeting} onDeleteMeeting={deleteMeeting} onInitialEntryComplete={completeFirstEntry} animateJoin={animateJoin} /></FirstEntryBoundary>;
   return <main ref={entryPage} className="entry-page">
     <a className="brand entry-brand" href="/">Meet Soon</a>
     <section className="entry-card" aria-labelledby="entry-title">

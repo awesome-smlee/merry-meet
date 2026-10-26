@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseRoomCode, roomName, parseCreatedRooms, roomInvitation, invitationCode, roomEntry } from '../lib/rooms.mjs';
 import { POST } from '../app/api/rooms/route.js';
+import { createRoomInvitation, resolveRoomInvitation } from '../lib/room-invitation.js';
 
 test('legacy invitations retain their target and take precedence over saved rooms and join flags', () => {
   for (const code of ['Ab3_-9', 'a'.repeat(32), 'a'.repeat(128)]) {
@@ -37,12 +38,10 @@ test('created room history restores distinct rooms and ignores corrupt entries',
 });
 
 test('invitation shares a code and entry link without unrelated URL data', () => {
-  const invite = roomInvitation('https://example.com/?room=aaaaaaaa&other=private#details', 'aaaaaaaa', '친구 모임');
-  assert.equal(invite.url, 'https://example.com/?join=1&invite=aaaaaaaa');
-  const entry = roomEntry(new URL(invite.url).search, 'bbbbbbbb');
-  assert.equal(entry.target, 'aaaaaaaa');
-  assert.equal(entry.invitation, 'aaaaaaaa');
-  assert.equal(entry.joinOnly, false);
+  const invite = roomInvitation('https://example.com/?room=aaaaaaaa&other=private#details', 'aaaaaaaa', '친구 모임', 'opaque-token');
+  assert.equal(invite.url, 'https://example.com/?join=1&invitation=opaque-token');
+  assert.ok(!invite.url.includes('aaaaaaaa'));
+  assert.throws(() => roomInvitation('https://example.com', 'aaaaaaaa', '친구 모임'));
   assert.match(invite.text, /모임코드: aaaaaaaa/);
   assert.equal(invite.title, '친구 모임 초대');
 });
@@ -87,8 +86,40 @@ test('room API creates distinct rooms and only exposes invitation metadata', asy
   assert.equal(first.name, '우리 모임');
   rooms.get(second.room).data.members.push({ nickname: '비공개', token: 'private-token' });
   const lookup = await (await POST(request({ action: 'lookup', code: second.room }))).json();
-  assert.deepEqual(lookup, { room: second.room, name: '친구들' });
+  assert.deepEqual(Object.keys(lookup).sort(), ['invitationToken', 'name', 'room']);
+  assert.equal(lookup.room, second.room);
+  assert.equal(lookup.name, '친구들');
+  assert.equal(resolveRoomInvitation(lookup.invitationToken), second.room);
+  const resolvedResponse = await POST(request({ action: 'resolve-invitation', invitationToken: lookup.invitationToken }));
+  assert.equal(resolvedResponse.headers.get('Cache-Control'), 'no-store');
+  const resolved = await resolvedResponse.json();
+  assert.equal(resolved.room, second.room);
+  assert.equal(resolved.name, '친구들');
+  for (const invitationToken of ['', null, 123, second.room, 'v1.invalid']) {
+    assert.equal((await POST(request({ action: 'resolve-invitation', invitationToken }))).status, 400);
+  }
+  rooms.get(second.room).delete_after = new Date().toISOString();
+  assert.equal((await POST(request({ action: 'resolve-invitation', invitationToken: lookup.invitationToken }))).status, 400);
   assert.equal((await POST(request({ action: 'lookup', code: 'ffffffffffffffff' }))).status, 404);
   assert.equal((await POST(request({ action: 'create', name: '' }, 'https://other.example'))).status, 403);
   assert.equal(rooms.size, 2);
+});
+
+test('invitation tokens conceal codes and reject tampering and a different server key', t => {
+  const originalEnv = { ...process.env };
+  t.after(() => { process.env = originalEnv; });
+  process.env.ROOM_INVITATION_SECRET = 'test-only-secret-for-invitation-tokens';
+  for (const code of ['Ab3_-9', 'a'.repeat(128)]) {
+    const token = createRoomInvitation(code);
+    assert.equal(resolveRoomInvitation(token), code);
+    assert.notEqual(createRoomInvitation(code), token);
+    assert.ok(!token.includes(code));
+    const payload = Buffer.from(token.slice(3), 'base64url');
+    assert.ok(!payload.includes(Buffer.from(code)));
+    payload[15] ^= 1;
+    assert.throws(() => resolveRoomInvitation('v1.' + payload.toString('base64url')), /초대 링크/);
+  }
+  const token = createRoomInvitation('Ab3_-9');
+  process.env.ROOM_INVITATION_SECRET = 'a-different-server-secret';
+  assert.throws(() => resolveRoomInvitation(token), /초대 링크/);
 });

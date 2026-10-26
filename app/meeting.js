@@ -50,7 +50,7 @@ const PlacePlanner = dynamic(() => import('./place-planner'), {
 const empty = { members: [], confirmed: null, me: null };
 const ProfileEditor = dynamic(() => import('./profile-editor'), { ssr: false });
 const MeetingEvents = dynamic(() => import('./meeting-events'), { ssr: false });
-export default function Meeting({ configured, initialDate, holidayCalendar, roomCode, roomName = '우리 모임', createdRooms = [], onCreateMeeting, onDeleteMeeting, onInitialEntryComplete, animateJoin = false }) {
+export default function Meeting({ configured, initialDate, holidayCalendar, roomCode, invitationToken, roomName = '우리 모임', createdRooms = [], onCreateMeeting, onDeleteMeeting, onInitialEntryComplete, animateJoin = false }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [eventView, setEventView] = useState(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -488,8 +488,8 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
     sharePending.current = true;
     setSharing(true);
     setInviteMessage('');
-    const invitation = roomInvitation(location.href, room, roomName);
     try {
+      const invitation = roomInvitation(location.href, room, roomName, invitationToken);
       if (!copyOnly && navigator.share) {
         await navigator.share(invitation);
       } else {

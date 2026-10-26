@@ -6,11 +6,12 @@ import {findRoom} from '../../../lib/room-store.js';
 import {ANIMAL_AVATARS} from '../../../lib/avatars.mjs';
 import {EVENT_ACTIONS,validateEventPayload} from '../../../lib/events.mjs';
 import {validateDeadline,validateReschedule} from '../../../lib/meeting-updates.mjs';
+import {isAllowedRequestOrigin} from '../../../lib/request-origin.mjs';
 export const dynamic='force-dynamic';
 const hash=s=>createHash('sha256').update(s).digest('hex');
 export async function POST(req){try{
  if(!process.env.SUPABASE_URL||!process.env.SUPABASE_SERVICE_ROLE_KEY)return Response.json({error:'DB 연결 설정이 필요합니다.'},{status:503});
- if(req.headers.get('origin')&&req.headers.get('origin')!==new URL(req.url).origin)return Response.json({error:'허용되지 않은 요청입니다.'},{status:403});
+ if(!isAllowedRequestOrigin(req))return Response.json({error:'허용되지 않은 요청입니다.'},{status:403});
  const text=await req.text();if(text.length>100000)return Response.json({error:'요청이 너무 큽니다.'},{status:413});
  const b=JSON.parse(text);if(!parseRoomCode(b.room)||(b.room!==process.env.MEETING_ID&&!(await findRoom(b.room))))return Response.json({error:'유효한 모임 코드로 접속해 주세요.'},{status:403});
  const action=b.action;if(!['read','join','profile','save','confirm','unconfirm','reschedule','reset','deadline-set',...PLACE_ACTIONS,...EVENT_ACTIONS].includes(action))throw Error('잘못된 요청입니다.');
