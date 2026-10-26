@@ -3059,6 +3059,18 @@ footer > small {
 .friends .vote-age { font-size: 11px; }
 .recommend-shortlist, .overlap-shortlist { display: grid; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
 .recommend-short-row, .overlap-shortlist li { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.overlap-sort-note { margin: 18px 0 0; color: var(--muted); font-size: 12px; }
+.overlap-shortlist li { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; gap: 14px; }
+.overlap-candidate-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 16px; }
+.overlap-candidate-date { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.overlap-candidate-date strong { font-size: 22px; line-height: 1.3; color: var(--ink); font-variant-numeric: tabular-nums; }
+.overlap-candidate-count { display: inline-flex; align-items: center; gap: 6px; padding: 6px 9px; border-radius: 8px; background: #edf3fc; color: var(--blue-dark); font-size: 12px; }
+.overlap-candidate-count > svg { width: 15px; height: 15px; flex-shrink: 0; }
+.overlap-candidate-count.is-everyone { color: #27735c; background: #e5f4ed; }
+.overlap-candidate-people { display: grid; min-width: 0; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border); }
+.overlap-candidate-people > span { font-size: 11px; color: var(--muted); }
+.overlap-candidate-people .member-identity { font-size: 12px; }
+.overlap-candidate-people .member-avatar { width: 24px; height: 24px; flex-basis: 24px; }
 .calendar .day.today { background: #34363b; border-color: #34363b; color: #f5f5f6; box-shadow: none; }
 .calendar .day.today :is(.day-heading, .day-heading > span, .day-caption, small) { color: #f5f5f6; }
 .calendar .day.today .day-heading > span:first-child { font-size: inherit; font-weight: 400; }

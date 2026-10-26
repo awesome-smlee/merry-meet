@@ -46,7 +46,12 @@ html {
 .place-result-title > strong { min-width: 0; }
 .place-result-title > span { flex-shrink: 0; }
 
+@media (max-width: 1200px) {
+  .confirmed-focus { width: calc(100% - 64px); margin-inline: auto; }
+}
+
 @media (min-width: 651px) and (max-width: 1024px) {
+  .confirmed-focus { width: calc(100% - 48px); }
   .recommend-options { grid-auto-columns: calc((100% - 14px) / 2); }
   .place-planning-columns { grid-template-columns: minmax(0, 1fr); }
   .time-modal { width: min(650px, calc(100vw - 48px)); }
@@ -55,6 +60,7 @@ html {
 }
 
 @media (max-width: 650px) {
+  .confirmed-focus { width: calc(100% - 32px); }
   .calendar .day-confirmed {
     flex-direction: column;
     align-items: center;
@@ -184,6 +190,7 @@ html {
 }
 
 @media (max-width: 360px) {
+  .confirmed-focus { width: calc(100% - 24px); }
   main, .topbar { padding-inline: 12px; }
   .time-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .topbar { flex-wrap: wrap; }

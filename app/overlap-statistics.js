@@ -70,9 +70,25 @@ export default function OverlapStatistics({ ranks, members }) {
           <p>달력에서 가능한 시간을 선택하면 응답 통계를 확인할 수 있어요.</p>
         </div>
       ) : topCandidates.length <= 3 ? (
-        <ul className="overlap-shortlist">{topCandidates.map(candidate => <li key={candidate.slot}>
-          <span>{Number(candidate.day.slice(5, 7))}/{Number(candidate.day.slice(8))} {new Intl.DateTimeFormat('ko-KR', { weekday: 'short', timeZone: 'Asia/Seoul' }).format(new Date(`${candidate.day}T00:00:00+09:00`))} · {candidate.time} · {candidate.count}명 가능</span>
-        </li>)}</ul>
+        <div className="overlap-shortlist-section">
+          <p className="overlap-sort-note">가능 인원이 많은 순으로 모았어요.</p>
+          <ul className="overlap-shortlist" aria-label="가능한 날짜와 시간 후보">{topCandidates.map(candidate => <li key={candidate.slot}>
+            <div className="overlap-candidate-heading">
+              <time className="overlap-candidate-date" dateTime={`${candidate.day}T${candidate.time}:00+09:00`}>
+                <span>{Number(candidate.day.slice(5, 7))}월 {Number(candidate.day.slice(8))}일 ({new Intl.DateTimeFormat('ko-KR', { weekday: 'short', timeZone: 'Asia/Seoul' }).format(new Date(`${candidate.day}T00:00:00+09:00`))})</span>
+                <strong>{candidate.time}</strong>
+              </time>
+              <span className={`overlap-candidate-count${candidate.count === total ? ' is-everyone' : ''}`}>
+                <Users aria-hidden="true" />
+                {candidate.count === total ? `전원 ${total}명 가능` : `${total}명 중 ${candidate.count}명 가능`}
+              </span>
+            </div>
+            <div className="overlap-candidate-people">
+              <span>가능한 참여자</span>
+              <div className="member-identity-list">{candidate.participants.map(member => <MemberIdentity key={member.id} member={member} />)}</div>
+            </div>
+          </li>)}</ul>
+        </div>
       ) : (
         <>
           <div className="overlap-chart-panel">
