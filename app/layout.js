@@ -3,7 +3,7 @@ import './responsive.css';
 const siteUrl = process.env.SITE_URL ||
   (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` :
     process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:4173');
-const description = '참여자의 가능한 시간을 모아 약속을 정하고, 만날 장소를 함께 선택하세요.';
+const description = '간편하게 만날 날짜와 장소를 선택해요🍀';
 export const metadata = {
   metadataBase: new URL(siteUrl),
   referrer: 'no-referrer',
@@ -13,12 +13,12 @@ export const metadata = {
     type: 'website',
     locale: 'ko_KR',
     siteName: 'Meet Soon',
-    title: 'Meet Soon · 우리 곧 만나요',
+    title: 'Meet Soon · 우리 얼른 보자규',
     description,
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Meet Soon · 우리 곧 만나요',
+    title: 'Meet Soon · 우리 얼른 보자규',
     description,
   },
   robots: { index: false, follow: false },
