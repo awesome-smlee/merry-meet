@@ -506,7 +506,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
     return true;
   }
   async function openPlaceEdit() {
-    if (!me || busy || dirtyRef.current || savingRef.current) return;
+    if (!me || !latestState.current.confirmedPlace || busy || dirtyRef.current || savingRef.current) return;
     E('');
     try {
       if (state.confirmedPlace && !await placeAction('place-unconfirm', {})) return;
@@ -645,7 +645,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
         </div>
         {me && <div className="confirmed-focus-actions">
           <button type="button" className="outline-button" disabled={busy || dirty || saveStatus === 'saving'} onClick={() => { if (scheduleEditOpen) { setScheduleEdit(null); F(''); } else openScheduleEdit(); }}>{scheduleEditOpen ? '변경 취소' : '일정 변경'}</button>
-          <button type="button" className="outline-button" disabled={busy || dirty || saveStatus === 'saving'} onClick={openPlaceEdit}>장소 변경</button>
+          <button type="button" className="outline-button" disabled={!confirmedPlace || busy || dirty || saveStatus === 'saving'} onClick={openPlaceEdit}>장소 변경</button>
         </div>}
       </section>}
       <main className={showPlaces ? 'place-workspace' : 'time-workspace'}>
@@ -734,6 +734,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
                 <div>
                   <h2 id="recommend-title">추천 날짜와 시간</h2>
                   <p>날짜별로 가장 많은 인원이 가능한 시간을 추천해요.</p>
+                  <p className="confirm-speech">약속 확정은 한 명이 마지막에 해주세요!</p>
                 </div>
               </div>
               {recommendedDays.length > 0 && recommendedDays.length <= 3 ? (
@@ -805,7 +806,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
                       </MemberIdentity>
                     </strong>
                     
-                    <span className="vote-age">
+                    <span className={`vote-age${!m.responded || !m.votedAt ? ' empty-state-text' : ''}`}>
                       {m.responded ? (
                         m.votedAt ? (
                           <time
@@ -825,7 +826,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
                     </span>
                     <div className="friend-availability">
                       <strong>가능한 일정</strong>
-                      <span>
+                      <span className={!dates.length ? 'empty-state-text' : undefined}>
                         {dates.length
                           ? dates.map((date) => `${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))}`).join(', ')
                           : '선택한 날짜 없음'}
@@ -836,7 +837,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
               })}
             </div>
             {!memberCount && (
-              <p className="subtext">아직 참여자가 없어요. 초대 링크를 공유해 주세요.</p>
+              <p className="subtext empty-state-text">아직 참여자가 없어요. 초대 링크를 공유해 주세요.</p>
             )}
           </section>
             <div className="schedule-calendar">

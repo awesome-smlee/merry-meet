@@ -70,7 +70,7 @@ export default function MeetingEvents({ state, initialDate, initialMode, onActio
             <button type="button" disabled={saving} onClick={() => { setDeleteId(event.id); setError(''); }}>삭제</button>
           </>}
         </div>}
-      </li>)}</ul> : <p>등록된 이벤트가 없어요.</p>}
+      </li>)}</ul> : <p className="empty-state-text">등록된 이벤트가 없어요.</p>}
       <button type="button" className="primary" disabled={saving} onClick={() => edit()}>다른 이벤트 추가하기</button>
     </>}
     {error && <p className="form-error" role="alert">{error}</p>}

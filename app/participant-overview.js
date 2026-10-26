@@ -82,7 +82,7 @@ export default function ParticipantOverview({ members, canIntroduce }) {
           {shown.length ? (
             <ul>{shown.map((member) => <li key={member.id}><MemberIdentity member={member} /></li>)}</ul>
           ) : (
-            <p>{active === 'completed' ? '아직 응답한 참여자가 없어요.' : '아직 참여자가 없어요.'}</p>
+            <p className="empty-state-text">{active === 'completed' ? '아직 응답한 참여자가 없어요.' : '아직 참여자가 없어요.'}</p>
           )}
         </div>
       )}

@@ -360,8 +360,8 @@ button.cancel-button:disabled { opacity: 0.45; cursor: not-allowed; }
   .place-planning-columns { grid-template-columns: 1fr; gap: 18px; }
   .place-planning-panel { padding: 20px; }
 }
-.region-options { display: flex; flex-wrap: wrap; gap: 8px; }
-.region-options button { display: flex; gap: 10px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 12px; background: #f5f9ff; font-size: 13px; }
+.region-options { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.region-options button { display: flex; width: 100%; min-width: 0; justify-content: center; gap: 10px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 12px; background: #f5f9ff; font-size: 13px; }
 .region-options button.active { border-color: var(--blue); background: #e2eeff; color: var(--blue-dark); }
 .region-options small { font-size: 12px; color: var(--muted); }
 .place-form-wrap > h4 { margin: 0; color: var(--ink); font-size: 14px; }
@@ -885,6 +885,28 @@ main {
   box-shadow:
     inset 0 1px 2px white,
     0 3px 0 #dce9fb;
+}
+.recommend .confirm-speech {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  margin: 8px 0 0;
+  padding: 9px 13px;
+  border-radius: 4px 14px 14px 14px;
+  background: #e7effb;
+  color: #526d94;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.confirm-speech::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 12px;
+  border-right: 7px solid transparent;
+  border-bottom: 7px solid #e7effb;
 }
 h2 {
   font-size: 20px;
@@ -2068,6 +2090,15 @@ h2 {
 .place-ballot-footer > span {
   color: var(--hint);
 }
+:root .empty-state-text,
+:root .empty h3,
+:root .empty p,
+:root .recommend-empty,
+:root .recommend-empty span,
+:root .place-empty-message,
+:root .place-empty-prompt {
+  color: #a6adb7;
+}
 footer {
   text-align: center;
   padding: 48px 0;
@@ -2255,8 +2286,11 @@ footer > small {
   font-size: 14px;
   color: var(--ink);
 }
-.modal input::placeholder {
-  color: #8a9ab2;
+:root input::placeholder,
+:root textarea::placeholder {
+  color: #a6b2c3;
+  font-weight: 300;
+  opacity: 1;
 }
 .modal > small {
   display: block;
@@ -2991,7 +3025,7 @@ footer > small {
 @media (max-width: 1000px) {
   .schedule-dashboard { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'recommend' 'friends' 'calendar' 'statistics'; gap: 16px; }
   .schedule-dashboard > .friends, .schedule-dashboard > .recommend { padding: 20px 16px; }
-  .schedule-dashboard.is-confirmed .friends .friend-availability { flex-basis: 100%; padding-left: 48px; }
+  .schedule-dashboard.is-confirmed .friends .friend-availability { flex-basis: 100%; padding-left: 0; }
 }
 .confirmed-focus { display: flex; align-items: center; justify-content: space-between; gap: 24px; max-width: 1120px; margin: 8px auto 24px; padding: 28px 32px; border: 1px solid #b9d0f1; border-radius: 22px; background: var(--surface-muted); }
 .confirmed-focus-label { display: inline-flex; align-items: center; gap: 7px; color: var(--blue-dark); font-size: 13px; }
@@ -3039,7 +3073,7 @@ footer > small {
   .confirmed-focus { margin: 8px 16px 20px; padding: 22px 20px; flex-direction: column; align-items: stretch; gap: 18px; }
   .confirmed-focus .primary { width: 100%; }
   .friends .friend { gap: 8px 12px; padding: 12px; }
-  .friends .friend-availability { flex-basis: 100%; padding-left: 48px; }
+  .friends .friend-availability { flex-basis: 100%; padding-left: 0; }
   .friends .vote-age { margin-left: auto; }
   .calendar .day-confirmed { font-size: 9px; }
 }
