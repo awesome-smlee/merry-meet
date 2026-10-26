@@ -187,6 +187,11 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
       if (action === 'read' && (dirtyRef.current || savingRef.current))
         return data;
       S(data.state);
+      if (action === 'join') {
+        // The join response already contains the member state needed to render the room.
+        setInitialReadComplete(true);
+        setInitialReadError('');
+      }
       if (action === 'read') setInitialReadError('');
       T(data.today);
       if (data.token) {
