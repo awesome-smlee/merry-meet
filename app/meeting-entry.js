@@ -3,7 +3,7 @@ import { Component, useCallback, useEffect, useRef, useState } from 'react';
 import { CalendarDays, KeyRound, ArrowLeft } from 'lucide-react';
 import Meeting from './meeting';
 import MeetingSkeleton from './skeleton';
-import { parseRoomCode, roomName, parseCreatedRooms, invitationCode } from '../lib/rooms.mjs';
+import { parseRoomCode, roomName, parseCreatedRooms, invitationCode, roomEntry } from '../lib/rooms.mjs';
 
 class FirstEntryBoundary extends Component {
   state = { failed: false, message: '화면을 복구하는 중이에요.' };
@@ -203,26 +203,23 @@ export default function MeetingEntry(props) {
       localStorage.setItem('mm-room:' + testRoom.room, JSON.stringify(testRoom));
     }
     const params = new URLSearchParams(location.search);
+    let savedRoom = '';
+    try { savedRoom = sessionStorage.getItem(activeRoomKey) || ''; } catch {}
+    const { invitation, target, legacy, joinOnly } = roomEntry(location.search, savedRoom);
     // Remove legacy room codes from the visible URL before doing any lookup.
-    if (params.has('invite') || params.has('room')) {
+    if (legacy) {
       const cleanUrl = new URL(location.href);
       cleanUrl.searchParams.delete('invite');
       cleanUrl.searchParams.delete('room');
       cleanUrl.searchParams.set('join', '1');
       history.replaceState(null, '', cleanUrl);
     }
-    if (params.get('join') === '1') {
+    if (joinOnly) {
       setScreen('join');
       setInitializing(false);
       return;
     }
-    const invitation = params.get('invite');
-    let existingRoom = params.get('room');
-    if (!existingRoom && params.get('meeting') === '1') {
-      try { existingRoom = sessionStorage.getItem(activeRoomKey); } catch {}
-      if (!existingRoom) setScreen('join');
-    }
-    const target = invitation || existingRoom;
+    if (!target && params.get('meeting') === '1') setScreen('join');
     if (target) {
       setScreen('join');
       if (!parseRoomCode(target) || parseRoomCode(target) !== target) {

@@ -1,7 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRoomCode, roomName, parseCreatedRooms, roomInvitation, invitationCode } from '../lib/rooms.mjs';
+import { parseRoomCode, roomName, parseCreatedRooms, roomInvitation, invitationCode, roomEntry } from '../lib/rooms.mjs';
 import { POST } from '../app/api/rooms/route.js';
+
+test('legacy invitations retain their target and take precedence over saved rooms and join flags', () => {
+  for (const code of ['Ab3_-9', 'a'.repeat(32), 'a'.repeat(128)]) {
+    for (const param of ['invite', 'room']) {
+      const entry = roomEntry(`?${param}=${code}&join=1`, 'bbbbbbbb');
+      assert.equal(entry.target, code);
+      assert.equal(entry.legacy, true);
+      assert.equal(entry.joinOnly, false);
+      assert.equal(entry.invitation, param === 'invite' ? code : '');
+      assert.equal(invitationCode(code, entry.target), code);
+    }
+  }
+  assert.equal(roomEntry('?invite=aaaaaaaa&room=bbbbbbbb').target, 'aaaaaaaa');
+  assert.equal(roomEntry('?join=1', 'aaaaaaaa').target, '');
+  assert.equal(roomEntry('?meeting=1', 'aaaaaaaa').target, 'aaaaaaaa');
+  assert.equal(roomEntry('?meeting=1').target, '');
+  assert.equal(roomEntry('', 'aaaaaaaa').target, '');
+});
 
 test('room codes accept invitations and reject malformed query values', () => {
   assert.equal(parseRoomCode('Ab3_-9'), 'Ab3_-9');
