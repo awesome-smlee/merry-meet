@@ -206,8 +206,8 @@ export default function MeetingEntry(props) {
     let savedRoom = '';
     try { savedRoom = sessionStorage.getItem(activeRoomKey) || ''; } catch {}
     const { invitation, target, legacy, joinOnly } = roomEntry(location.search, savedRoom);
-    // Remove legacy room codes from the visible URL before doing any lookup.
-    if (legacy) {
+    // Keep invitation links intact so the code survives a refresh before entry.
+    if (legacy && !invitation) {
       const cleanUrl = new URL(location.href);
       cleanUrl.searchParams.delete('invite');
       cleanUrl.searchParams.delete('room');
@@ -240,6 +240,7 @@ export default function MeetingEntry(props) {
         return;
       }
       setInvitedRoom(target);
+      setCode(target);
     }
     setInitializing(false);
   }, []);
@@ -269,7 +270,7 @@ export default function MeetingEntry(props) {
       <span className="entry-icon"><CalendarDays aria-hidden="true" /></span>
      
       <h1 id="entry-title">{screen === 'home' ? '우리, 언제 만날까요?' : screen === 'create' ? '모임 만들기' : '코드로 참여하기'}</h1>
-      <p className="entry-description">{screen === 'home' ? '' : screen === 'create' ? '' : '초대 링크와 함께 받은 모임코드를 입력해 주세요.'}</p>
+      <p className="entry-description">{screen === 'home' ? '' : screen === 'create' ? '' : invitedRoom ? '모임코드가 자동 입력됐어요. 다음을 눌러 참여해 주세요.' : '초대 링크와 함께 받은 모임코드를 입력해 주세요.'}</p>
       {screen === 'home' ? <div className="entry-actions">
         <button className="primary" onClick={() => navigate('create')}>모임 만들기</button>
         <button className="outline-button" onClick={() => navigate('join')}>코드로 참여하기 <KeyRound aria-hidden="true" /></button>

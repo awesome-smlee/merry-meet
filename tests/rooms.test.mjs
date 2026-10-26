@@ -38,8 +38,11 @@ test('created room history restores distinct rooms and ignores corrupt entries',
 
 test('invitation shares a code and entry link without unrelated URL data', () => {
   const invite = roomInvitation('https://example.com/?room=aaaaaaaa&other=private#details', 'aaaaaaaa', '친구 모임');
-  assert.equal(invite.url, 'https://example.com/?join=1');
-  assert.ok(!invite.url.includes('aaaaaaaa'));
+  assert.equal(invite.url, 'https://example.com/?join=1&invite=aaaaaaaa');
+  const entry = roomEntry(new URL(invite.url).search, 'bbbbbbbb');
+  assert.equal(entry.target, 'aaaaaaaa');
+  assert.equal(entry.invitation, 'aaaaaaaa');
+  assert.equal(entry.joinOnly, false);
   assert.match(invite.text, /모임코드: aaaaaaaa/);
   assert.equal(invite.title, '친구 모임 초대');
 });
