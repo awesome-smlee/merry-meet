@@ -360,8 +360,8 @@ button.cancel-button:disabled { opacity: 0.45; cursor: not-allowed; }
   .place-planning-columns { grid-template-columns: 1fr; gap: 18px; }
   .place-planning-panel { padding: 20px; }
 }
-.region-options { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
-.region-options button { display: flex; width: 100%; min-width: 0; justify-content: center; gap: 10px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 12px; background: #f5f9ff; font-size: 13px; }
+.region-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.region-options button { display: flex; flex: 1 1 auto; min-width: 0; justify-content: center; gap: 10px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 12px; background: #f5f9ff; font-size: 13px; }
 .region-options button.active { border-color: var(--blue); background: #e2eeff; color: var(--blue-dark); }
 .region-options small { font-size: 12px; color: var(--muted); }
 .place-form-wrap > h4 { margin: 0; color: var(--ink); font-size: 14px; }
