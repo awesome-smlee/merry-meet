@@ -1,4 +1,19 @@
 /* Responsive adjustments shared by the scheduling and place flows. */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Keep focused fields at a readable size so mobile Safari does not zoom in.
+   Cover touch devices in landscape as well as narrow desktop previews. */
+@media (max-width: 1024px), (pointer: coarse) {
+  :root input,
+  :root select,
+  :root textarea {
+    font-size: 16px;
+  }
+}
+
 @media (max-width: 480px) {
   .modal.profile-modal { padding: 24px 20px; border-radius: 22px; max-height: calc(100dvh - 24px); }
   .profile-modal .profile-avatar-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
@@ -40,6 +55,27 @@
 }
 
 @media (max-width: 650px) {
+  .entry-page { gap: 18px; padding-block: 20px; }
+  .entry-card { padding: 22px 18px; border-radius: 20px; }
+  .entry-icon { padding: 12px; border-radius: 16px; }
+  .entry-icon svg { width: 24px; height: 24px; }
+  .entry-card h1 { margin: 15px 0; font-size: 21px; line-height: 1.4; }
+  .entry-description { margin: 0 0 16px; font-size: 12px; line-height: 1.6; }
+  .entry-description:empty { display: none; }
+  .entry-actions, .entry-card form { gap: 10px; }
+  .entry-card label { font-size: 13px; }
+  .entry-hint { margin: 0; line-height: 1.5; }
+  .entry-card input { min-height: 46px; padding: 11px 12px; }
+  .entry-card .primary, .entry-card .outline-button { min-height: 44px; padding: 11px 12px; font-size: 12px; }
+  .modal.join-modal { padding: 24px 20px; border-radius: 22px; }
+  .join-modal .modal-emoji { width: 52px; height: 52px; border-radius: 18px; font-size: 26px; }
+  .join-modal .script { margin: 14px 0 8px; font-size: 18px; }
+  .join-modal h2 { margin: 14px 0 8px; font-size: 20px; line-height: 1.4; }
+  .join-modal label { margin: 14px 0 6px; }
+  .join-modal input { min-height: 46px; padding: 11px 12px; }
+  .join-modal > small { margin-top: 6px; font-size: 11px; }
+  .join-modal .primary { min-height: 44px; margin-top: 16px; padding: 11px 12px; font-size: 12px; }
+  .join-modal .demo-warning { margin-top: 12px; font-size: 11px; }
   .skeleton-columns, .skeleton-place-columns { grid-template-columns: minmax(0, 1fr); }
   .skeleton-recommendation:not(:first-child) { display: none; }
   .skeleton-recommendation { height: 220px; }
