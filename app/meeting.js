@@ -333,12 +333,16 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
       }
       return;
     }
-    if (
-      state.members.some(
-        (m) => m.nickname.toLowerCase() === nickname.trim().toLowerCase(),
-      )
-    ) {
-      E('이미 사용 중인 닉네임이에요. 다른 닉네임을 입력해 주세요.');
+    const returningMember = state.members.find(
+      (m) => m.nickname.toLowerCase() === nickname.trim().toLowerCase(),
+    );
+    if (returningMember) {
+      demoSave({ ...state, me: returningMember.id });
+      draftRef.current = returningMember.slots || [];
+      V(draftRef.current);
+      setSaveStatus('saved');
+      E('');
+      setWelcomeName(returningMember.nickname);
       return;
     }
     const id = crypto.randomUUID();
@@ -1153,6 +1157,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
             <div className="script">Meet Soon</div>
             <h2>닉네임을 입력해주세요</h2>
             <label htmlFor="nickname">닉네임</label>
+            <p>전에 참여했다면 같은 닉네임으로 이어서 입장할 수 있어요.</p>
             <input
               id="nickname"
               data-filled={!!nickname.trim()}

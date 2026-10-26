@@ -32,6 +32,20 @@ test('profile edits authenticate the member, enforce uniqueness and preserve vot
     assert.equal(updated.members.find(member => member.id === second.me).nickname, 'Bob');
     assert.equal(me.token, undefined);
     assert.equal((await call('read', 'token-a')).me, first.me);
+    const restored = await call('join', 'new-browser-token', ' 새 이름 ');
+    assert.equal(restored.me, first.me);
+    assert.equal(restored.members.length, 2);
+    assert.deepEqual(restored.members.find(member => member.id === first.me), me);
+    assert.ok(restored.members.every(member => !('token' in member) && !('reentryTokens' in member)));
+    assert.equal((await call('read', 'token-a')).me, first.me);
+    const edited = await call('profile', 'new-browser-token', '복귀한 이름', { avatar: 'cat' });
+    assert.equal(edited.members.find(member => member.id === first.me).avatar, 'cat');
+    const saved = await call('save', 'new-browser-token', null, ['2027-01-02|10:00']);
+    assert.deepEqual(saved.members.find(member => member.id === first.me).slots, ['2027-01-02|10:00']);
+    const repeated = await call('join', 'new-browser-token', '복귀한 이름');
+    assert.equal(repeated.members.length, 2);
+    const isolated = (await db.query('select meeting_action($1,$2,$3,$4) as s', ['another-room', 'join', 'another-token', '복귀한 이름'])).rows[0].s;
+    assert.notEqual(isolated.me, first.me);
   } finally { await db.close(); }
 });
 

@@ -3,7 +3,7 @@ test('database: more than five members, anonymous tokens, isolation, save and pa
  const db=new PGlite();await db.exec('create role anon;create role authenticated;create role service_role;');await db.exec(await readFile(new URL('../supabase.sql',import.meta.url),'utf8'));
  const call=async(action,token,nickname=null,slots=[],slot=null,admin=false)=>(await db.query('select meeting_action($1,$2,$3,$4,$5::jsonb,$6,$7) as s',['test-room',action,token,nickname,JSON.stringify(slots),slot,admin])).rows[0].s;
  const first=await call('join','token-1','쏘맹');assert.equal(first.members.length,1);assert.ok(first.me);assert.equal(first.members[0].token,undefined);
- await assert.rejects(call('join','other','쏘맹'),/이미 사용/);await assert.rejects(call('read','forged'),/참여 정보/);
+ const returning=await call('join','other','쏘맹');assert.equal(returning.me,first.me);assert.equal(returning.members.length,1);assert.equal(returning.members[0].reentryTokens,undefined);await assert.rejects(call('read','forged'),/참여 정보/);
  for(let i=2;i<=5;i++)await call('join','token-'+i,'친구'+i);
  const sixth=await call('join','token-6','친구6');assert.equal(sixth.members.length,6);
  const slot='2027-01-01|18:00';await call('save','token-1',null,[slot]);const state=await call('save','token-2',null,[]);assert.equal(state.members[0].responded,true);assert.equal(state.members[1].responded,true);assert.equal(state.members[2].responded,false);

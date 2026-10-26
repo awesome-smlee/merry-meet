@@ -24,11 +24,19 @@ begin
  if exists(select 1 from meeting_rooms where id=p_room and delete_after is not null) then raise exception '삭제 요청된 모임이에요.'; end if;
  before_state:=s;
  ms:=s->'members';
- select (ordinality-1)::integer into idx from jsonb_array_elements(ms) with ordinality where value->>'token'=p_token;
+ select (ordinality-1)::integer into idx from jsonb_array_elements(ms) with ordinality where value->>'token'=p_token or coalesce(value->'reentryTokens','[]'::jsonb) ? p_token;
  if p_action='join' then
-  if exists(select 1 from jsonb_array_elements(ms) where lower(value->>'nickname')=lower(p_nickname)) then raise exception '이미 사용 중인 닉네임이에요.'; end if;
+  -- TEMPORARY: nickname-only reentry until account authentication is introduced.
+  if coalesce(length(trim(p_nickname)),0) not between 1 and 12 then raise exception '닉네임은 1~12자로 입력해 주세요.'; end if;
+  select (ordinality-1)::integer into idx from jsonb_array_elements(ms) with ordinality where lower(value->>'nickname')=lower(trim(p_nickname));
+  if idx is not null then
+   if ms->idx->>'token' is distinct from p_token and not (coalesce(ms->idx->'reentryTokens','[]'::jsonb) ? p_token) then
+    ms:=jsonb_set(ms,array[idx::text,'reentryTokens'],coalesce(ms->idx->'reentryTokens','[]'::jsonb)||jsonb_build_array(p_token));
+   end if;
+  else
   member:=jsonb_build_object('id',gen_random_uuid()::text,'nickname',p_nickname,'token',p_token,'responded',false,'slots','[]'::jsonb);
   ms:=ms||jsonb_build_array(member);
+  end if;
   -- Capture the creator's first nickname only after verifying room ownership.
   update meeting_rooms set creator_nickname=p_nickname
    where id=p_room and creator_nickname is null
@@ -126,8 +134,8 @@ begin
   s:=jsonb_set(s,'{changes}',changes);
  end if;
  s:=jsonb_set(s,'{members}',ms);update meeting_rooms set data=s where id=p_room;
- select coalesce(jsonb_agg(value-'token'),'[]') into result from jsonb_array_elements(ms);
- return jsonb_build_object('members',result,'confirmed',s->'confirmed','me',(select value->>'id' from jsonb_array_elements(ms) where value->>'token'=p_token),'responseDeadline',s->'responseDeadline','allowLateResponses',coalesce(s->'allowLateResponses','false'::jsonb),'changes',coalesce(s->'changes','[]'),'events',coalesce(s->'events','[]'),'places',coalesce(s->'places','[]'),'regionVotes',coalesce(s->'regionVotes','{}'),'placeVotes',coalesce(s->'placeVotes','{}'),'confirmedPlace',s->'confirmedPlace','resetVersion',s->'resetVersion');
+ select coalesce(jsonb_agg(value-'token'-'reentryTokens'),'[]') into result from jsonb_array_elements(ms);
+ return jsonb_build_object('members',result,'confirmed',s->'confirmed','me',(select value->>'id' from jsonb_array_elements(ms) where value->>'token'=p_token or coalesce(value->'reentryTokens','[]'::jsonb) ? p_token),'responseDeadline',s->'responseDeadline','allowLateResponses',coalesce(s->'allowLateResponses','false'::jsonb),'changes',coalesce(s->'changes','[]'),'events',coalesce(s->'events','[]'),'places',coalesce(s->'places','[]'),'regionVotes',coalesce(s->'regionVotes','{}'),'placeVotes',coalesce(s->'placeVotes','{}'),'confirmedPlace',s->'confirmedPlace','resetVersion',s->'resetVersion');
 end;$$;
 revoke all on function public.meeting_action(text,text,text,text,jsonb,text,boolean) from public,anon,authenticated;
 grant execute on function public.meeting_action(text,text,text,text,jsonb,text,boolean) to service_role;
