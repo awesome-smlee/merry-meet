@@ -3030,7 +3030,7 @@ footer > small {
 .confirmed-focus { display: flex; align-items: center; justify-content: space-between; gap: 24px; max-width: 1120px; margin: 8px auto 24px; padding: 28px 32px; border: 1px solid #b9d0f1; border-radius: 22px; background: var(--surface-muted); }
 .confirmed-focus-label { display: inline-flex; align-items: center; gap: 7px; color: var(--blue-dark); font-size: 13px; }
 .confirmed-focus h2 { margin: 8px 0; font-size: clamp(22px, 3vw, 30px); letter-spacing: -.6px; }
-.confirmed-focus p { margin: 0; color: var(--muted); }
+.confirmed-focus p { margin: 0; color: var(--muted); font-size: 10px; }
 .confirmed-focus-details { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .confirmed-focus h2.confirmed-focus-label { margin: 0 0 12px; font-size: 13px; font-weight: 500; letter-spacing: normal; }
 .confirmed-focus-summary { display: grid; gap: 10px; margin: 0; }
@@ -3070,7 +3070,7 @@ footer > small {
 @media (max-width: 650px) {
   .schedule-dashboard .recommend-grid,
   .schedule-dashboard .recommend-shortlist { grid-template-columns: minmax(0, 1fr); }
-  .confirmed-focus { margin: 8px 16px 20px; padding: 22px 20px; flex-direction: column; align-items: stretch; gap: 18px; }
+  .confirmed-focus { margin: 0 16px 15px; padding: 22px 20px; flex-direction: column; align-items: stretch; gap: 18px; }
   .confirmed-focus .primary { width: 100%; }
   .friends .friend { gap: 8px 12px; padding: 12px; }
   .friends .friend-availability { flex-basis: 100%; padding-left: 0; }

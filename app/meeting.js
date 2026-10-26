@@ -641,7 +641,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
             <ul className="confirmed-focus-members" aria-label="참여 가능한 참여자">
               {confirmedMembers.map((member) => <li key={member.id}><MemberIdentity member={member} /></li>)}
             </ul>
-          ) : <p>{confirmedMembers.length}명 가능 · 이제 만날 장소를 정해보세요.</p>}
+          ) : <p>{confirmedMembers.length}명 참여 예정 / 이제 만날 장소를 정해보세요.</p>}
         </div>
         {me && <div className="confirmed-focus-actions">
           <button type="button" className="outline-button" disabled={busy || dirty || saveStatus === 'saving'} onClick={() => { if (scheduleEditOpen) { setScheduleEdit(null); F(''); } else openScheduleEdit(); }}>{scheduleEditOpen ? '변경 취소' : '일정 변경'}</button>
