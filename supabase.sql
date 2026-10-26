@@ -2,6 +2,11 @@
 create table if not exists public.meeting_rooms(id text primary key, data jsonb not null default '{"members":[],"confirmed":null}'::jsonb);
 alter table public.meeting_rooms add column if not exists owner_token_hash text;
 alter table public.meeting_rooms add column if not exists delete_after timestamptz;
+-- Historical creation times are unknown; only new rooms receive the default.
+alter table public.meeting_rooms add column if not exists created_at timestamptz;
+alter table public.meeting_rooms alter column created_at set default now();
+alter table public.meeting_rooms add column if not exists creator_nickname text;
+alter table public.meeting_rooms add column if not exists creation_pending boolean not null default false;
 create index if not exists meeting_rooms_delete_after on public.meeting_rooms(delete_after) where delete_after is not null;
 -- Keep only revoked codes after purging, so old invitations cannot recreate a room.
 create table if not exists public.deleted_meeting_codes(id text primary key);
@@ -24,6 +29,10 @@ begin
   if exists(select 1 from jsonb_array_elements(ms) where lower(value->>'nickname')=lower(p_nickname)) then raise exception '이미 사용 중인 닉네임이에요.'; end if;
   member:=jsonb_build_object('id',gen_random_uuid()::text,'nickname',p_nickname,'token',p_token,'responded',false,'slots','[]'::jsonb);
   ms:=ms||jsonb_build_array(member);
+  -- Capture the creator's first nickname only after verifying room ownership.
+  update meeting_rooms set creator_nickname=p_nickname
+   where id=p_room and creator_nickname is null
+    and owner_token_hash=p_slots->>'ownerTokenHash';
  else
   if idx is null then raise exception '참여 정보를 찾을 수 없어요. 다시 입장해 주세요.'; end if;
   if p_action='profile' then
@@ -152,3 +161,27 @@ begin
 end;$$;
 revoke all on function public.purge_deleted_meetings() from public,anon,authenticated;
 grant execute on function public.purge_deleted_meetings() to service_role;
+
+-- Only newly created rooms opt in; existing rooms can never be aborted here.
+create or replace function public.finish_meeting_creation(p_room text, p_owner_token_hash text, p_abort boolean, p_member_token_hash text default null)
+returns boolean language plpgsql security definer set search_path=public as $$
+declare target meeting_rooms%rowtype; members jsonb;
+begin
+ select * into target from meeting_rooms where id=p_room for update;
+ if not found then return true; end if;
+ if target.owner_token_hash is null or p_owner_token_hash is distinct from target.owner_token_hash then
+  raise exception '모임 생성 권한을 확인할 수 없어요.';
+ end if;
+ if not target.creation_pending then return not p_abort; end if;
+ if not p_abort then
+  update meeting_rooms set creation_pending=false where id=p_room;
+  return true;
+ end if;
+ members:=target.data->'members';
+ if jsonb_array_length(members)>1 or (jsonb_array_length(members)=1 and members->0->>'token' is distinct from p_member_token_hash) then return false; end if;
+ insert into deleted_meeting_codes(id) values(p_room) on conflict do nothing;
+ delete from meeting_rooms where id=p_room;
+ return true;
+end;$$;
+revoke all on function public.finish_meeting_creation(text,text,boolean,text) from public,anon,authenticated;
+grant execute on function public.finish_meeting_creation(text,text,boolean,text) to service_role;

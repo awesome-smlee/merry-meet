@@ -1,9 +1,29 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { Component, useCallback, useEffect, useRef, useState } from 'react';
 import { CalendarDays, KeyRound, ArrowLeft } from 'lucide-react';
 import Meeting from './meeting';
 import MeetingSkeleton from './skeleton';
 import { parseRoomCode, roomName, parseCreatedRooms, invitationCode } from '../lib/rooms.mjs';
+
+class FirstEntryBoundary extends Component {
+  state = { failed: false, message: '화면을 복구하는 중이에요.' };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch() { void this.recover(); }
+  recover = async () => {
+    if (this.recovering) return;
+    this.recovering = true;
+    try {
+      const message = await this.props.onFailure();
+      if (message) this.setState({ message });
+    }
+    catch { this.setState({ message: '방 정리를 완료하지 못했어요. 다시 시도해 주세요.' }); }
+    finally { this.recovering = false; }
+  };
+  render() {
+    if (this.state.failed) return <main className="entry-page"><section className="entry-card" role="alert"><p>{this.state.message}</p><button onClick={this.recover}>다시 시도</button><a href="/">처음으로</a></section></main>;
+    return this.props.children;
+  }
+}
 
 export default function MeetingEntry(props) {
   const [screen, setScreen] = useState('home');
@@ -19,6 +39,43 @@ export default function MeetingEntry(props) {
   const [animateJoin, setAnimateJoin] = useState(false);
   const entryPage = useRef(null);
   const pending = useRef(false);
+  const firstCreation = useRef(null);
+  const completeFirstEntry = useCallback(() => {
+    const creation = firstCreation.current;
+    if (!creation) return;
+    // Once the initial welcome succeeds, later errors must never delete this room.
+    firstCreation.current = null;
+    if (props.configured) {
+      void fetch('/api/rooms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'complete-create', code: creation.room, ownerToken: creation.ownerToken }) }).catch(() => {});
+    }
+  }, [props.configured]);
+  async function recoverFirstEntry() {
+    const creation = firstCreation.current;
+    if (!creation) return '화면에 오류가 발생했어요. 기존 모임은 유지됩니다. 새로고침해 주세요.';
+    let completed = true;
+    if (props.configured) {
+      let token;
+      try { token = localStorage.getItem('mm-token:' + creation.room); } catch {}
+      const response = await fetch('/api/rooms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'abort-create', code: creation.room, ownerToken: creation.ownerToken, token }) });
+      if (!response.ok) throw Error('방 정리 실패');
+      completed = (await response.json()).completed;
+    }
+    if (completed) {
+      const next = createdRooms.filter(item => item.room !== creation.room);
+      setCreatedRooms(next);
+      try {
+        localStorage.setItem(createdRoomsKey, JSON.stringify(next));
+        for (const key of [ownerKey(creation.room), 'mm-token:' + creation.room, 'mm-demo:' + creation.room, 'mm-room:' + creation.room]) localStorage.removeItem(key);
+      } catch {}
+    }
+    firstCreation.current = null;
+    const url = new URL(location.href);
+    url.searchParams.delete('room');
+    history.replaceState(null, '', url);
+    setSelected(null);
+    setScreen('create');
+    setMessage(completed ? '첫 입장에 실패하여 방 생성을 취소했어요. 다시 만들어 주세요.' : '방은 삭제하지 않았어요. 다른 참여자가 있거나 이미 생성이 완료된 모임이에요.');
+  }
   const ownerKey = code => `mm-owner:${props.configured ? 'server' : 'demo'}:${code}`;
   const deletionPrefix = props.configured ? 'mm-deleted-server-room:' : 'mm-deleted-room:';
   function readCreatedRooms() {
@@ -75,6 +132,7 @@ export default function MeetingEntry(props) {
         if (!room) throw Error('해당 모임을 찾을 수 없어요.');
       }
       if (action === 'create') {
+        firstCreation.current = room;
         let canDelete = false;
         try { localStorage.setItem(ownerKey(room.room), room.ownerToken); canDelete = true; } catch {}
         let previous = createdRooms;
@@ -97,6 +155,7 @@ export default function MeetingEntry(props) {
         await animation.finished.catch(() => {});
       }
       setAnimateJoin(action === 'create');
+      if (action !== 'create') firstCreation.current = null;
       setSelected(room);
     } catch (error) {
       setMessage(error.message);
@@ -163,6 +222,7 @@ export default function MeetingEntry(props) {
 
   function navigate(next) { setMessage(''); setScreen(next); }
   function createMeeting() {
+    firstCreation.current = null;
     const url = new URL(location.href);
     url.searchParams.delete('room');
     url.searchParams.delete('invite');
@@ -174,7 +234,7 @@ export default function MeetingEntry(props) {
     setSelected(null);
   }
   if (initializing) return <MeetingSkeleton />;
-  if (selected) return <Meeting key={selected.room} {...props} roomName={selected.name} createdRooms={createdRooms} onCreateMeeting={createMeeting} onDeleteMeeting={deleteMeeting} animateJoin={animateJoin} />;
+  if (selected) return <FirstEntryBoundary key={selected.room} onFailure={recoverFirstEntry}><Meeting {...props} roomName={selected.name} createdRooms={createdRooms} onCreateMeeting={createMeeting} onDeleteMeeting={deleteMeeting} onInitialEntryComplete={completeFirstEntry} animateJoin={animateJoin} /></FirstEntryBoundary>;
   return <main ref={entryPage} className="entry-page">
     <a className="brand entry-brand" href="/">Meet Soon</a>
     <section className="entry-card" aria-labelledby="entry-title">

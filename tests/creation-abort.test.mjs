@@ -1,0 +1,35 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { PGlite } from '@electric-sql/pglite';
+
+test('creation abort only deletes pending rooms owned by the caller without other participants', async t => {
+  const db = new PGlite();
+  t.after(() => db.close());
+  await db.exec('create role anon; create role authenticated; create role service_role;');
+  await db.exec(await readFile(new URL('../supabase.sql', import.meta.url), 'utf8'));
+  const create = (id, pending = true) => db.query('insert into meeting_rooms(id,owner_token_hash,creation_pending) values($1,$2,$3)', [id, 'owner', pending]);
+  const join = (id, token, nickname) => db.query("select meeting_action($1,'join',$2,$3)", [id, token, nickname]);
+  const finish = async (id, abort = true, owner = 'owner', member = 'creator') => (await db.query('select finish_meeting_creation($1,$2,$3,$4) as ok', [id, owner, abort, member])).rows[0].ok;
+  await create('failed-room');
+  await join('failed-room', 'creator', '방장');
+  await assert.rejects(finish('failed-room', true, 'wrong'), /권한/);
+  assert.equal(await finish('failed-room', true, 'owner', 'wrong'), false);
+  assert.equal(await finish('failed-room'), true);
+  assert.equal((await db.query("select id from meeting_rooms where id='failed-room'")).rows.length, 0);
+  await assert.rejects(join('failed-room', 'creator', '방장'), /삭제/);
+  assert.equal(await finish('failed-room'), true);
+  await create('empty-room');
+  assert.equal(await finish('empty-room'), true);
+  await create('shared-room');
+  await join('shared-room', 'creator', '방장');
+  await join('shared-room', 'guest', '친구');
+  assert.equal(await finish('shared-room'), false);
+  await create('completed-room');
+  assert.equal(await finish('completed-room', false), true);
+  assert.equal(await finish('completed-room'), false);
+  await create('existing-room', false);
+  assert.equal(await finish('existing-room'), false);
+  const permissions = (await db.query("select has_function_privilege('anon','finish_meeting_creation(text,text,boolean,text)','EXECUTE') as anon, has_function_privilege('authenticated','finish_meeting_creation(text,text,boolean,text)','EXECUTE') as authenticated, has_function_privilege('service_role','finish_meeting_creation(text,text,boolean,text)','EXECUTE') as service")).rows[0];
+  assert.deepEqual(permissions, { anon: false, authenticated: false, service: true });
+});

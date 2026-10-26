@@ -25,6 +25,7 @@ export async function POST(req){try{
  if(action==='deadline-set')b.slots=validateDeadline(b.payload);
  let token=b.token;
  if(action==='join'){if(typeof b.nickname!=='string'||b.nickname.trim().length<1||b.nickname.trim().length>12)throw Error('닉네임은 1~12자로 입력해 주세요.');token=randomBytes(32).toString('hex');}
+ if(action==='join')b.slots={ownerTokenHash:typeof b.ownerToken==='string'&&/^[a-f0-9]{64}$/.test(b.ownerToken)?hash(b.ownerToken):null};
  else if(typeof token!=='string'||!/^[a-f0-9]{64}$/.test(token))return Response.json({error:'다시 입장해 주세요.'},{status:401});
  if(action==='save'&&(!Array.isArray(b.slots)||b.slots.length>2000||!b.slots.every(s=>validSlot(s))))throw Error('가능한 날짜와 시간을 다시 확인해 주세요.');
  if(action==='confirm'&&!validSlot(b.slot))throw Error('확정할 날짜와 시간을 확인해 주세요.');

@@ -159,18 +159,18 @@ body:has(.time-workspace), body:has(.place-workspace) { background: #eef1f5; }
 .place-workspace .place-confirmed-summary { background: #e3eaf3; border-color: #c4d1e1; }
 .place-workspace .place-confirmed-label { color: #344b68; }
 .place-workspace .place-confirmed-map iframe { background: #e1e7ef; border-color: #cbd5e2; }
-/* Latin letters use Gaegu Bold at every requested weight (minimum visual weight 700).
-   Korean characters and digits keep Jalnan. */
+/* Latin letters, digits and basic numeric punctuation share Gaegu Bold.
+   Korean characters keep Jalnan. */
 @font-face {
   font-family: 'Gaegu';
   font-style: normal;
   font-weight: 100 900;
-  /* Scale Latin glyphs only: 12px text renders at a 15px-equivalent size. */
+  /* Keep Latin letters and digits at the same visual scale. */
   size-adjust: 125%;
   font-display: swap;
-  src: url('https://fonts.gstatic.com/l/font?kit=TuGSUVB6Up9NU573jvw7-vckRRZ0cYOVngAbFFAoR3lMtVZR3naLtE0jlMoSmz5l89sOgopyyD95l51qpfXx2d1IJt4F&skey=daec53040a5bfd39&v=v23')
+  src: url('https://fonts.gstatic.com/l/font?kit=TuGSUVB6Up9NU573jvw7-oRAL3wbGOj8-XlgbS9RPAAr3D04y2Gep1A8ieM5shFM2PIpu7FL9wZCrrpDjtzkzshbO8EYUWqh2CAT222AjyUT9R16GMxrEQ&skey=daec53040a5bfd39&v=v23')
     format('truetype');
-  unicode-range: U+0041-005A, U+0061-007A;
+  unicode-range: U+0025, U+0028-0029, U+002B-003A, U+0041-005A, U+0061-007A;
 }
 
 @font-face {
@@ -255,7 +255,7 @@ body:has(.time-workspace), body:has(.place-workspace) { background: #eef1f5; }
 .meeting-steps > button { flex: 1; min-width: 0; display: grid; grid-template-columns: 36px auto minmax(0, 1fr); align-items: center; gap: 8px 12px; text-align: left; padding: 14px 18px; border-radius: 15px; background: transparent; }
 .meeting-steps .meeting-step-icon { grid-column: 4; grid-row: 1; align-self: center; justify-self: end; width: 24px; height: 24px; color: #526b8c; }
 .meeting-steps > button[aria-current] { background: #e4efff; color: var(--blue-dark); }
-.meeting-steps button > span { grid-column: 1; grid-row: 1; align-self: center; justify-self: center; display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 12px; background: var(--gradient); color: white; text-align: center; line-height: 1; font-family: system-ui, sans-serif; font-weight: 600; }
+.meeting-steps button > span { grid-column: 1; grid-row: 1; align-self: center; justify-self: center; display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 12px; background: var(--gradient); color: white; text-align: center; line-height: 1; font-weight: 600; }
 .meeting-steps button > strong { grid-column: 2; grid-row: 1; }
 .meeting-steps button > small { grid-column: 3; grid-row: 1; }
 .meeting-steps small { font-size: 10px; color: var(--muted); }
@@ -519,6 +519,15 @@ button,
 input,
 select {
   font: inherit;
+}
+.calendar,
+.time-modal,
+.confirmation-date,
+.recommend-attendees,
+.overlap-chart,
+.friends,
+time {
+  font-variant-numeric: tabular-nums;
 }
 button {
   cursor: pointer;

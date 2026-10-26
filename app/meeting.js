@@ -50,7 +50,7 @@ const PlacePlanner = dynamic(() => import('./place-planner'), {
 const empty = { members: [], confirmed: null, me: null };
 const ProfileEditor = dynamic(() => import('./profile-editor'), { ssr: false });
 const MeetingEvents = dynamic(() => import('./meeting-events'), { ssr: false });
-export default function Meeting({ configured, initialDate, holidayCalendar, roomName = '우리 모임', createdRooms = [], onCreateMeeting, onDeleteMeeting, animateJoin = false }) {
+export default function Meeting({ configured, initialDate, holidayCalendar, roomName = '우리 모임', createdRooms = [], onCreateMeeting, onDeleteMeeting, onInitialEntryComplete, animateJoin = false }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [eventView, setEventView] = useState(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -298,13 +298,13 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
     const overflow = document.body.style.overflow;
     dialog.showModal();
     document.body.style.overflow = 'hidden';
-    const timer = setTimeout(() => setWelcomeName(''), 2000);
+    const timer = setTimeout(() => { setWelcomeName(''); onInitialEntryComplete?.(); }, 2000);
     return () => {
       clearTimeout(timer);
       dialog.close();
       document.body.style.overflow = overflow;
     };
-  }, [welcomeName]);
+  }, [welcomeName, onInitialEntryComplete]);
   function demoSave(next) {
     next = recordMeetingChange(latestState.current, next, crypto.randomUUID());
     latestState.current = next;
@@ -321,7 +321,9 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
     e.preventDefault();
     if (!nickname.trim()) return;
     if (configured) {
-      const result = await request('join', { nickname });
+      let ownerToken;
+      try { ownerToken = localStorage.getItem('mm-owner:server:' + room) || undefined; } catch {}
+      const result = await request('join', { nickname, ownerToken });
       const joined = result?.state.members.find(
         (member) => member.id === result.state.me,
       );
