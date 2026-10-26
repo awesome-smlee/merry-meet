@@ -821,7 +821,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
                           '응답 시각 정보 없음'
                         )
                       ) : (
-                        '아직 응답하지 않았어요'
+                        <span role="img" aria-label="아직 응답하지 않았어요" title="아직 응답하지 않았어요">😴</span>
                       )}
                     </span>
                     <div className="friend-availability">
@@ -902,17 +902,22 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
                       mine = slots.some((s) => s.startsWith(d + '|')),
                       holidays = yearHolidays?.[d] || [],
                       weekday = (start + i) % 7,
-                      count = members.filter((member) =>
+                      dayMembers = members.filter((member) =>
                         member.slots.some((slot) => slot.startsWith(d + '|')),
-                      ).length;
+                      ),
+                      count = dayMembers.length;
+                    const dayTooltip = [
+                      holidays.join(' · '),
+                      count ? `선택한 참여자 (${count}명): ${dayMembers.map(member => member.nickname).join(', ')}` : '아직 선택한 참여자가 없어요.',
+                    ].filter(Boolean).join('\n');
                     const dayEvents = (state.events || []).filter(event => event.date === d);
                     return (
-                      <div className="calendar-day-cell" key={d}>
+                      <div className="calendar-day-cell" key={d} title={dayTooltip}>
                       <button
                         disabled={d < today}
                         aria-label={`${d}${d === today ? ' 오늘' : ''}${state.confirmed?.startsWith(d + '|') ? ' 확정' : ''}${d === bestDay ? ' 추천 1순위 날짜' : ''}${holidays.length ? ' ' + holidays.join(', ') : ''}${mine ? ' 내가 선택한 날짜' : ''} ${count}명 선택`}
                         aria-current={d === today ? 'date' : undefined}
-                        title={holidays.join(' · ') || undefined}
+                        title={dayTooltip}
                         aria-pressed={mine}
                         aria-haspopup="dialog"
                         onClick={() => openTime(d)}
