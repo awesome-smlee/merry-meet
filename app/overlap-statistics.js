@@ -52,17 +52,15 @@ export default function OverlapStatistics({ ranks, members }) {
         <div className="overlap-metric featured">
           <span><Users aria-hidden="true" /> 최대 가능 인원</span>
           <strong>{maximum}<small> / {total}명</small></strong>
-          <p>{total ? Math.round(maximum / total * 100) : 0}% 참석 가능</p>
         </div>
         <div className="overlap-metric">
           <span><ChartNoAxesCombined aria-hidden="true" /> 겹치는 시간</span>
           <strong>{overlapCount}<small>개</small></strong>
-          <p>2명 이상 가능한 시간</p>
         </div>
         <div className="overlap-metric">
           <span><CalendarCheck aria-hidden="true" /> 전원 가능</span>
           <strong>{everyoneCount}<small>개</small></strong>
-          <p>{total >= 2 ? '전체 참여자가 가능한 시간' : '참여자가 2명 이상이면 집계해요'}</p>
+          
         </div>
       </div>
       {!ranks.length ? (
@@ -71,6 +69,10 @@ export default function OverlapStatistics({ ranks, members }) {
           <h3>아직 시간 응답이 없어요.</h3>
           <p>달력에서 가능한 시간을 선택하면 응답 통계를 확인할 수 있어요.</p>
         </div>
+      ) : topCandidates.length <= 3 ? (
+        <ul className="overlap-shortlist">{topCandidates.map(candidate => <li key={candidate.slot}>
+          <span>{Number(candidate.day.slice(5, 7))}/{Number(candidate.day.slice(8))} {new Intl.DateTimeFormat('ko-KR', { weekday: 'short', timeZone: 'Asia/Seoul' }).format(new Date(`${candidate.day}T00:00:00+09:00`))} · {candidate.time} · {candidate.count}명 가능</span>
+        </li>)}</ul>
       ) : (
         <>
           <div className="overlap-chart-panel">

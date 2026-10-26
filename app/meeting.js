@@ -1,20 +1,27 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
-import RecommendationCarousel from './recommendation-carousel';
 import MeetingSkeleton, { PlaceSkeleton, StatisticsSkeleton } from './skeleton';
 import MemberIdentity from './member-identity';
-import { QRCodeSVG } from 'qrcode.react';
+import { roomInvitation } from '../lib/rooms.mjs';
 import { applyPlaceAction } from '../lib/places.mjs';
 import { holidayLabel } from '../lib/holidays.mjs';
+import { applyEventAction, EVENT_ACTIONS } from '../lib/events.mjs';
+import { applyDeadline, applyReschedule, responsesClosed, recordMeetingChange } from '../lib/meeting-updates.mjs';
+import MeetingChanges from './meeting-changes';
 import {
-  ArrowRight,
   ArrowUpRight,
+  ArrowUp,
+  Copy,
   Check,
   ChevronLeft,
   ChevronRight,
   Circle,
+  Clock,
+  MapPin,
   CalendarDays,
+  House,
+  CalendarPlus,
   Heart,
   Hand,
   PartyPopper,
@@ -31,7 +38,7 @@ import {
   rankSlots,
   dateLabel,
   voteAgeLabel,
-  availableDays,
+  validSlot,
 } from '../lib/meeting.mjs';
 const OverlapStatistics = dynamic(() => import('./overlap-statistics'), {
   ssr: false,
@@ -42,9 +49,21 @@ const PlacePlanner = dynamic(() => import('./place-planner'), {
 });
 const empty = { members: [], confirmed: null, me: null };
 const ProfileEditor = dynamic(() => import('./profile-editor'), { ssr: false });
-export default function Meeting({ configured, initialDate, holidayCalendar, roomName = '우리 모임' }) {
+const MeetingEvents = dynamic(() => import('./meeting-events'), { ssr: false });
+export default function Meeting({ configured, initialDate, holidayCalendar, roomName = '우리 모임', createdRooms = [], onCreateMeeting, onDeleteMeeting, animateJoin = false }) {
   const [profileOpen, setProfileOpen] = useState(false);
+  const [eventView, setEventView] = useState(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  useEffect(() => {
+    const updateScrollTop = () => setShowScrollTop(window.scrollY > 240);
+    updateScrollTop();
+    window.addEventListener('scroll', updateScrollTop, { passive: true });
+    return () => window.removeEventListener('scroll', updateScrollTop);
+  }, []);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteMessage, setInviteMessage] = useState('');
+  const [sharing, setSharing] = useState(false);
+  const sharePending = useRef(false);
   const inviteDialog = useRef(null);
   useEffect(() => {
     if (!inviteOpen) return;
@@ -71,6 +90,36 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
     [sync, Y] = useState('연결 중');
   const [now, setNow] = useState(() => Date.now());
   const [initialReadComplete, setInitialReadComplete] = useState(false);
+  const [initialReadError, setInitialReadError] = useState('');
+  const [scheduleEdit, setScheduleEdit] = useState(null);
+  const scheduleEditOpen = scheduleEdit !== null;
+  const calendarSection = useRef(null);
+  useEffect(() => {
+    if (scheduleEditOpen) calendarSection.current?.focus();
+  }, [scheduleEditOpen]);
+  function openScheduleEdit() {
+    if (!state.confirmed) return;
+    const date = state.confirmed.split('|')[0];
+    E('');
+    setScheduleEdit({ expectedConfirmed: state.confirmed });
+    F(state.confirmed);
+    D(date < today ? today : date);
+    M((date < today ? today : date).slice(0, 7));
+    setStep('time');
+  }
+  async function saveScheduleEdit(slot = pick) {
+    if (!me || busy || dirtyRef.current || savingRef.current || !scheduleEdit) return;
+    const payload = { slot, expectedConfirmed: scheduleEdit.expectedConfirmed };
+    try {
+      if (configured) {
+        if (!await request('reschedule', { payload })) return;
+      } else demoSave(applyReschedule(state, payload));
+      setTimeOpen(false);
+      setScheduleEdit(null);
+      F('');
+      E('장소는 유지하고 일정을 변경했어요.');
+    } catch (error) { E(error.message); }
+  }
   const [resetOpen, setResetOpen] = useState(false);
   const resetDialog = useRef(null);
   useEffect(() => {
@@ -102,6 +151,14 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
   const me = state.members.find((m) => m.id === state.me),
     ranks = rankSlots(state.members, today || koreaToday()),
     responded = state.members.filter((m) => m.responded).length;
+  const responseClosed = responsesClosed(state, new Date(now));
+  useEffect(() => {
+    if (!state.responseDeadline) return;
+    const remaining = Date.parse(`${state.responseDeadline}T00:00:00+09:00`) + 86400000 - Date.now();
+    if (remaining <= 0) return;
+    const timer = setTimeout(() => setNow(Date.now()), Math.min(remaining + 50, 2147483647));
+    return () => clearTimeout(timer);
+  }, [state.responseDeadline, now]);
   async function request(action, payload = {}, quiet = false) {
     if (
       action === 'read' &&
@@ -122,10 +179,15 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw Error(data.error);
+      if (data.code === 'ROOM_DELETED') {
+        window.location.replace('/');
+        return null;
+      }
+      if (!res.ok) throw Object.assign(Error(data.error), { code: data.code });
       if (action === 'read' && (dirtyRef.current || savingRef.current))
         return data;
       S(data.state);
+      if (action === 'read') setInitialReadError('');
       T(data.today);
       if (data.token) {
         tokenRef.current = data.token;
@@ -140,7 +202,8 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
       Y('자동 업데이트 중');
       return data;
     } catch (e) {
-      if (action === 'profile') throw e;
+      if (action === 'read') setInitialReadError(e.message);
+      if (action === 'profile' || action === 'save' || action === 'deadline-set' || EVENT_ACTIONS.includes(action)) throw e;
       Y('연결 확인 필요');
       if (!quiet) E(e.message);
       return null;
@@ -209,11 +272,12 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
   }, [timeOpen]);
   function openTime(day) {
     D(day);
+    if (scheduleEditOpen) F('');
     setTimeCounts(rankSlots(state.members, today || koreaToday()));
     setTimeOpen(true);
   }
   function closeTime() {
-    if (savingRef.current) return;
+    if (savingRef.current || (scheduleEditOpen && busy)) return;
     const current = latestState.current;
     const savedSlots = current.members.find(member => member.id === current.me)?.slots || [];
     draftRef.current = savedSlots;
@@ -237,6 +301,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
     };
   }, [welcomeName]);
   function demoSave(next) {
+    next = recordMeetingChange(latestState.current, next, crypto.randomUUID());
     latestState.current = next;
     S(next);
     localStorage.setItem('mm-demo:' + room, JSON.stringify(next));
@@ -299,7 +364,8 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
   function changeSlots(next) {
-    if (!me || state.confirmed) return;
+    if (!me || (state.confirmed && !scheduleEditOpen)) return;
+    if (responsesClosed(latestState.current)) { setNow(Date.now()); E('응답이 마감되어 시간을 수정할 수 없어요.'); return; }
     draftRef.current = next.filter((s) => s.slice(0, 10) >= today);
     revisionRef.current++;
     dirtyRef.current = true;
@@ -315,15 +381,18 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
     );
   }
   async function save() {
-    if (savingRef.current || !me || state.confirmed) return;
+    if (savingRef.current || !me || (state.confirmed && !scheduleEditOpen)) return;
+    let refreshAfterDeadline = false;
     savingRef.current = true;
     setSaveStatus('saving');
     try {
       do {
+        if (scheduleEditOpen && latestState.current.confirmed !== scheduleEdit.expectedConfirmed) throw Error('일정이 변경되었어요. 다시 확인해 주세요.');
+        if (responsesClosed(latestState.current)) throw Object.assign(Error('응답이 마감되어 시간을 수정할 수 없어요.'), { code: 'RESPONSE_CLOSED' });
         const revision = revisionRef.current,
           snapshot = [...draftRef.current];
         if (configured) {
-          const result = await request('save', { slots: snapshot }, true);
+          const result = await request('save', { slots: snapshot, ...(scheduleEditOpen ? { slot: scheduleEdit.expectedConfirmed } : {}) }, true);
           if (!result)
             throw Error(
               '시간을 저장하지 못했어요. 연결을 확인하고 다시 시도해 주세요.',
@@ -351,14 +420,25 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
       } while (true);
       return true;
     } catch (e) {
-      setSaveStatus('error');
+      if (e.code === 'RESPONSE_CLOSED') {
+        const saved = latestState.current.members.find(member => member.id === latestState.current.me)?.slots || [];
+        draftRef.current = saved;
+        V(saved);
+        dirtyRef.current = false;
+        U(false);
+        setNow(Date.now());
+        setSaveStatus('saved');
+        refreshAfterDeadline = configured;
+      } else setSaveStatus('error');
       E(e.message);
       return false;
     } finally {
       savingRef.current = false;
+      if (refreshAfterDeadline) void request('read');
     }
   }
   async function confirm(candidateSlot) {
+    if (scheduleEditOpen && typeof candidateSlot === 'string') return saveScheduleEdit(candidateSlot);
     if (!me || busy || dirtyRef.current || savingRef.current) return;
     const wasConfirmed = !!state.confirmed,
       slot = typeof candidateSlot === 'string' ? candidateSlot : pick;
@@ -392,12 +472,24 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
       document.body.style.overflow = overflow;
     };
   }, [confirmOpen, state.confirmed]);
-  async function share() {
+  async function share(copyOnly = false) {
+    if (sharePending.current) return;
+    sharePending.current = true;
+    setSharing(true);
+    setInviteMessage('');
+    const invitation = roomInvitation(location.href, room, roomName);
     try {
-      await navigator.clipboard.writeText(location.href);
-      E('초대 링크를 복사했어요. 함께할 사람에게 공유해 주세요.');
-    } catch {
-      E('주소창의 링크를 복사해서 공유해 주세요.');
+      if (!copyOnly && navigator.share) {
+        await navigator.share(invitation);
+      } else {
+        await navigator.clipboard.writeText(`${invitation.text}\n${invitation.url}`);
+        setInviteMessage('초대 링크와 모임코드를 복사했어요. 친구에게 보내 주세요.');
+      }
+    } catch (error) {
+      if (error.name !== 'AbortError') setInviteMessage('공유하지 못했어요. 링크·코드 복사를 다시 시도해 주세요.');
+    } finally {
+      sharePending.current = false;
+      setSharing(false);
     }
   }
   async function placeAction(action, payload) {
@@ -405,6 +497,27 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
     if (configured) return !!(await request(action, { payload }));
     demoSave(applyPlaceAction(latestState.current, action, payload, crypto.randomUUID()));
     return true;
+  }
+  async function openPlaceEdit() {
+    if (!me || busy || dirtyRef.current || savingRef.current) return;
+    E('');
+    try {
+      if (state.confirmedPlace && !await placeAction('place-unconfirm', {})) return;
+      setScheduleEdit(null);
+      F('');
+      setStep('place');
+      E('일정은 유지하고 장소를 다시 선택할 수 있어요.');
+    } catch (error) { E(error.message); }
+  }
+  async function eventAction(action, payload) {
+    if (configured) await request(action, { payload });
+    else demoSave(applyEventAction(latestState.current, action, payload, crypto.randomUUID()));
+    if (action !== 'event-delete') M(payload.date.slice(0, 7));
+  }
+  async function saveDeadline(payload) {
+    if (configured) await request('deadline-set', { payload });
+    else demoSave(applyDeadline(latestState.current, payload));
+    setNow(Date.now());
   }
   async function resetMeeting() {
     if (!me || busy || savingRef.current) return;
@@ -457,78 +570,85 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
       recommendedDays.push(candidate);
     }
   }
-  const bestDay = state.confirmed
+  const bestDay = state.confirmed && !scheduleEditOpen
     ? null
     : recommendedDays[0]?.slot.slice(0, 10);
   const confirmedMembers = members.filter(
     (member) => member.responded && member.slots.includes(state.confirmed),
   );
   const confirmedPlace = state.places?.find(place => place.id === state.confirmedPlace);
-  const showPlaces = step === 'place' && !!state.confirmed;
+  const showPlaces = step === 'place' && !!state.confirmed && !scheduleEditOpen;
   if (!ready || (configured && token && !initialReadComplete)) return <MeetingSkeleton />;
+  if (configured && token && !me) return <main className="entry-page">
+    <a className="brand entry-brand" href={`?room=${encodeURIComponent(room)}`}>Meet Soon</a>
+    <section className="entry-card" aria-labelledby="returning-member-title">
+      <h1 id="returning-member-title">참여 정보를 불러오지 못했어요</h1>
+      <p className="entry-description">기존 참여 정보로 다시 연결할게요. 잠시 후 다시 시도해 주세요.</p>
+      {initialReadError && <p className="form-error" role="alert">{initialReadError}</p>}
+      <button type="button" className="primary" disabled={busy} onClick={() => request('read')}>{busy ? '불러오는 중…' : '다시 시도'}</button>
+    </section>
+  </main>;
   return (
     <>
       <header className="topbar">
-        <a href="/" className="brand">
+        <div className="topbar-heading">
+        <a href={`?room=${encodeURIComponent(room)}`} className="brand">
           Meet Soon
         </a>
+        <span className="topbar-divider" aria-hidden="true" />
+        <h1 className="topbar-room-name" title={roomName}><House aria-hidden="true" /><span>{roomName}</span></h1>
+        </div>
         {/* <span className="header-note">
           <span /> A little closer, together.
         </span> */}
         <div className="topbar-actions">
-        <button className="outline-button topbar-share" onClick={() => setInviteOpen(true)}>
-          친구 초대 <ArrowUpRight aria-hidden="true" />
+        <button type="button" className="outline-button topbar-create" onClick={onCreateMeeting}>
+          모임 만들기 <CalendarPlus aria-hidden="true" />
+        </button>
+        <button className="outline-button topbar-share" onClick={() => { setInviteMessage(''); setInviteOpen(true); }}>
+          친구 초대 <UserPlus aria-hidden="true" />
         </button>
         {me && <button type="button" className="topbar-profile" aria-label={`${me.nickname}, 내 정보 수정`} aria-haspopup="dialog" disabled={busy || dirty || saveStatus === 'saving'} onClick={() => setProfileOpen(true)}><MemberIdentity member={me} /></button>}
         </div>
       </header>
-      {profileOpen && me && <ProfileEditor member={me} onSave={saveProfile} onClose={() => setProfileOpen(false)} />}
+      {profileOpen && me && <ProfileEditor member={me} createdRooms={createdRooms} currentRoom={room} onSave={saveProfile} onClose={() => setProfileOpen(false)} />}
+      {eventView && me && <MeetingEvents state={state} initialDate={eventView.date} initialMode={eventView.mode} onAction={eventAction} onClose={() => setEventView(null)} />}
       <dialog ref={inviteDialog} className="modal" aria-labelledby="invite-title" onCancel={() => setInviteOpen(false)}>
+        <button type="button" className="close" aria-label="친구 초대 닫기" onClick={() => setInviteOpen(false)}><XIcon aria-hidden="true" /></button>
         {inviteOpen && <div className="invite-modal">
           <h2 id="invite-title">{roomName}에 초대하기</h2>
-          <QRCodeSVG value={typeof location !== 'undefined' ? location.href : ''} size={192} marginSize={4} />
-          <p>모임 코드</p><strong className="invite-code">{room}</strong>
-          <p>코드를 입력하거나 QR을 스캔하면 참여할 수 있어요.</p>
-          {!configured && <p className="demo-warning">체험 모드는 다른 기기와 공유되지 않아요.</p>}
-          <button className="primary" autoFocus onClick={share}>초대 링크 복사</button>
-          <button className="outline-button" onClick={() => setInviteOpen(false)}>닫기</button>
+          <p>링크와 모임코드를 공유해 친구를 초대하세요.</p>
+          <button type="button" className="primary" autoFocus disabled={sharing} onClick={() => share()}>초대 공유</button>
+          <button type="button" className="outline-button invite-copy" disabled={sharing} onClick={() => share(true)}>링크·코드 복사 <Copy aria-hidden="true" /></button>
+          {inviteMessage && <p role="status">{inviteMessage}</p>}
         </div>}
       </dialog>
-      {state.confirmed && (
-        <section className={`confirmed-hero confirmed-banner${confirmedPlace ? ' is-sliding' : ''}`} aria-label={confirmedPlace ? '시간과 장소 확정 완료' : '시간 확정, 장소 선택 필요'}>
+      {state.confirmed && <section className="confirmed-focus" aria-labelledby="confirmed-focus-title">
+        <div className="confirmed-focus-details">
+          <h2 id="confirmed-focus-title" className="confirmed-focus-label"><CalendarCheck aria-hidden="true" /> {confirmedPlace ? '최종 확정' : '일정 확정'}</h2>
+          <dl className="confirmed-focus-summary">
+            <div><dt>일정</dt><dd>{dateLabel(state.confirmed.split('|')[0])} · {state.confirmed.split('|')[1]}</dd></div>
+            <div><dt>장소</dt><dd>{confirmedPlace ? <>{confirmedPlace.region && <>{confirmedPlace.region} · </>}{confirmedPlace.name}</> : '미정'}</dd></div>
+          </dl>
           {confirmedPlace ? (
-            <div className="confirmed-banner-track">
-              {[0, 1].map(group => <div className="confirmed-banner-group" key={group} aria-hidden={group === 1 ? true : undefined}>
-                {[0, 1].map(copy => <div className="confirmed-banner-item" key={copy} aria-hidden={copy === 1 ? true : undefined}>
-                  <span className="confirmed-banner-label"><CalendarCheck aria-hidden="true" />약속 확정</span>
-                  <strong>{dateLabel(state.confirmed.split('|')[0])} · {state.confirmed.split('|')[1]}</strong>
-                  <span className="confirmed-banner-people">{confirmedMembers.length}명 가능</span>
-                  <a className="confirmed-banner-place" href={confirmedPlace.url} target="_blank" rel="noopener noreferrer" tabIndex={group === 0 && copy === 0 ? 0 : -1}>{confirmedPlace.name}<ArrowUpRight aria-hidden="true" /></a>
-                </div>)}
-              </div>)}
-            </div>
-          ) : <>
-          <div className="confirmed-banner-main">
-            <span className="confirmed-banner-label"><CalendarCheck aria-hidden="true" />시간 확정</span>
-            <strong>{dateLabel(state.confirmed.split('|')[0])} · {state.confirmed.split('|')[1]}</strong>
-            <span className="confirmed-banner-people">{confirmedMembers.length}명 가능</span>
-            <span className="confirmed-banner-pending">장소 선택 필요</span>
-          </div>
-          </>}
-        </section>
-      )}
+            <ul className="confirmed-focus-members" aria-label="참여 가능한 참여자">
+              {confirmedMembers.map((member) => <li key={member.id}><MemberIdentity member={member} /></li>)}
+            </ul>
+          ) : <p>{confirmedMembers.length}명 가능 · 이제 만날 장소를 정해보세요.</p>}
+        </div>
+        {me && <div className="confirmed-focus-actions">
+          <button type="button" className="outline-button" disabled={busy || dirty || saveStatus === 'saving'} onClick={() => { if (scheduleEditOpen) { setScheduleEdit(null); F(''); } else openScheduleEdit(); }}>{scheduleEditOpen ? '변경 취소' : '일정 변경'}</button>
+          <button type="button" className="outline-button" disabled={busy || dirty || saveStatus === 'saving'} onClick={openPlaceEdit}>장소 변경</button>
+        </div>}
+      </section>}
       <main className={showPlaces ? 'place-workspace' : 'time-workspace'}>
-        <section className="meeting-room" aria-label="현재 모임과 내 참여 정보">
-            <div className="meeting-room-title">
-              <span className="meeting-room-label">모임명</span>
-              <h1 className="meeting-room-name">{roomName}</h1>
-            </div>
-        </section>
         <nav className="meeting-steps" aria-label="약속 정하기 단계">
-          <button aria-current={!showPlaces ? 'step' : undefined} onClick={() => setStep('time')}><span>{state.confirmed ? '✓' : '1'}</span><strong>시간 정하기</strong><small>{state.confirmed ? '확정 완료' : '가능한 시간 선택'}</small></button>
-          <ArrowRight aria-hidden="true" />
-          <button aria-current={showPlaces ? 'step' : undefined} disabled={!state.confirmed} onClick={() => setStep('place')}><span>{confirmedPlace ? '✓' : '2'}</span><strong>장소 정하기</strong><small>{confirmedPlace ? '확정 완료' : state.confirmed ? '장소 선택 및 투표' : '시간 확정 후 가능'}</small></button>
+          <button aria-current={!showPlaces ? 'step' : undefined} onClick={() => setStep('time')}><span>{state.confirmed && !scheduleEditOpen ? '✓' : '1'}</span><strong>날짜/시간 정하기</strong><small>{scheduleEditOpen ? '일정 변경 중' : state.confirmed ? '확정 완료' : '가능한 시간 선택'}</small></button>
+          <button aria-current={showPlaces ? 'step' : undefined} disabled={!state.confirmed || scheduleEditOpen} onClick={() => setStep('place')}><span>{confirmedPlace ? '✓' : '2'}</span><strong>장소 정하기</strong><small>{confirmedPlace ? '확정 완료' : state.confirmed ? '장소 선택 및 투표' : '시간 확정 후 가능'}</small></button>
         </nav>
+        {me && <>
+          <MeetingChanges key={`${room}:${state.me}`} changes={state.changes} storageKey={`mm-changes-seen:v1:${configured ? 'server' : 'demo'}:${room}:${state.me}`} />
+        </>}
         {/* <section className="hero">
           <div className="hero-text">
             <h1>모두에게 맞는 시간을 찾아보세요</h1>
@@ -598,8 +718,9 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
           </div>
         </section> */}
         <div className="content">
-          <div className="notice"></div>
-          {!state.confirmed && (
+        
+          <div className={`schedule-dashboard${state.confirmed && !scheduleEditOpen ? ' is-confirmed' : ''}`} hidden={showPlaces}>
+          {(!state.confirmed || scheduleEditOpen) && (
             <section className="recommend" aria-labelledby="recommend-title">
               <div className="recommend-heading">
                 <div className="section-symbol"><CalendarCheck aria-hidden="true" /></div>
@@ -608,49 +729,121 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
                   <p>날짜별로 가장 많은 인원이 가능한 시간을 추천해요.</p>
                 </div>
               </div>
-              {recommendedDays.length ? (
-                <RecommendationCarousel count={recommendedDays.length}>
+              {recommendedDays.length > 0 && recommendedDays.length <= 3 ? (
+                <div className="recommend-shortlist">{recommendedDays.map(r => <div className="recommend-short-row recommend-option" key={r.slot} tabIndex={0}>
+                  <div className="recommend-details">
+                    <strong>{dateLabel(r.slot.slice(0, 10))} · {r.slot.split('|')[1]}</strong>
+                    <span className="recommend-attendees"><span>{r.count}명 가능 |</span>{members.filter((m) => m.responded && m.slots.includes(r.slot)).map((m) => <MemberIdentity key={m.id} member={m} />)}</span>
+                  </div>
+                  <div className="recommend-confirm-overlay">
+                    <button type="button" className="confirm-action card-confirm" disabled={!me || busy || dirty} onClick={() => confirm(r.slot)}>
+                      {busy ? '확정 중…' : '약속 확정'}<CalendarCheck aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>)}</div>
+              ) : recommendedDays.length ? (
+                <div className="recommend-grid">
                   {recommendedDays.map((r, i) => (
                     <div key={r.slot} className={'recommend-option ' + (i === 0 ? 'best ' : '') + (pick === r.slot ? 'selected' : '')}>
                       <button className="recommend-choice" onClick={() => F(r.slot)} aria-pressed={pick === r.slot}>
-                        <span className="recommend-label">추천 {i + 1}순위</span>
-                        <strong>{dateLabel(r.slot.slice(0, 10))}</strong>
-                        <time>{r.slot.split('|')[1]}</time>
-                        <span className="recommend-people">
-                          <Users aria-hidden="true" /><b>{r.count}명 가능</b><small>/ {memberCount}명</small>
-                          {r.count === memberCount && <em>전원 가능</em>}
-                        </span>
-                        <span className="recommend-names member-identity-list">{members.filter((m) => m.responded && m.slots.includes(r.slot)).map((m) => <MemberIdentity key={m.id} member={m} />)}</span>
+                        <strong>{dateLabel(r.slot.slice(0, 10))} · {r.slot.split('|')[1]}</strong>
+                        <span className="recommend-attendees"><span>{r.count}명 가능 |</span>{members.filter((m) => m.responded && m.slots.includes(r.slot)).map((m) => <MemberIdentity key={m.id} member={m} />)}</span>
                         <span className="recommend-link">
                           {pick === r.slot ? '선택한 시간' : '이 시간 선택'}
-                          {pick === r.slot ? <Check aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}
+                          {pick === r.slot ? <Check aria-hidden="true" /> : null}
                         </span>
                       </button>
-                      {(i === 0 || pick === r.slot) && (
-                        <div className="recommend-confirm-overlay">
-                          <button className="confirm-action card-confirm" disabled={!me || busy || dirty} onClick={() => confirm(r.slot)}>
-                            <CalendarCheck aria-hidden="true" />{busy ? '확정 중…' : '약속 확정'}
-                          </button>
-                        </div>
-                      )}
+                      <div className="recommend-confirm-overlay">
+                        <button type="button" className="confirm-action card-confirm" disabled={!me || busy || dirty} onClick={() => confirm(r.slot)}>
+                          {busy ? '확정 중…' : '약속 확정'}<CalendarCheck aria-hidden="true" />
+                        </button>
+                      </div>
                     </div>
                   ))}
-                </RecommendationCarousel>
+                </div>
               ) : (
                 <div className="recommend-empty">아직 추천할 일정이 없어요.<br /><span>달력에서 가능한 시간을 선택하면 추천 일정을 확인할 수 있어요.</span></div>
               )}
             </section>
           )}
-          {showPlaces && <PlacePlanner key={`${room}:${state.me}:${state.resetVersion || ''}`} storageKey={`mm-place-drafts:${configured ? room : 'demo'}:${state.me}:${state.resetVersion || ''}`} state={state} busy={busy} onAction={placeAction} />}
-          <div className="layout" hidden={showPlaces}>
-            <div className="main-column">
-              <section className="card calendar">
+          <section className="card friends" aria-labelledby="friends-title" hidden={showPlaces}>
+            <div className="card-heading">
+              <div>
+                <h2 id="friends-title">참여자별 응답 현황</h2>
+              </div>
+              <span className="response-summary">
+                <strong>{responded}</strong> / {memberCount}명 응답 완료
+              </span>
+            </div>
+            <div
+              className="progress"
+              role="progressbar"
+              aria-label="참여자 응답률"
+              aria-valuenow={responded}
+              aria-valuemin={0}
+              aria-valuemax={memberCount || 1}
+            >
+              <i style={{ width: responsePercent + '%' }} />
+            </div>
+            <div className="friend-list">
+              {state.members.map((m) => {
+                const dates = [...new Set(m.slots.filter((slot) => validSlot(slot, today)).map((slot) => slot.slice(0, 10)))].sort();
+                return (
+                  <article className="friend" key={m.id}>
+                    <strong className="friend-name">
+                      <MemberIdentity member={m}>
+                      {m.id === state.me && (
+                        <small className="me-badge">나</small>
+                      )}
+                      </MemberIdentity>
+                    </strong>
+                    
+                    <span className="vote-age">
+                      {m.responded ? (
+                        m.votedAt ? (
+                          <time
+                            dateTime={m.votedAt}
+                            title={new Date(m.votedAt).toLocaleString('ko-KR', {
+                              timeZone: 'Asia/Seoul',
+                            })}
+                          >
+                            {voteAgeLabel(m.votedAt, now)}
+                          </time>
+                        ) : (
+                          '응답 시각 정보 없음'
+                        )
+                      ) : (
+                        '아직 응답하지 않았어요'
+                      )}
+                    </span>
+                    <div className="friend-availability">
+                      <strong>가능한 일정</strong>
+                      <span>
+                        {dates.length
+                          ? dates.map((date) => `${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))}`).join(', ')
+                          : '선택한 날짜 없음'}
+                      </span>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+            {!memberCount && (
+              <p className="subtext">아직 참여자가 없어요. 초대 링크를 공유해 주세요.</p>
+            )}
+          </section>
+            <div className="schedule-calendar">
+              <div className="calendar-disclosure">
+                {state.confirmed && <div className="calendar-edit-notice"><p>{scheduleEditOpen ? '기존에 선택한 일정과 참여 가능 인원을 확인하고, 달력에서 새 날짜/시간을 선택해 주세요. 장소는 그대로 유지돼요.' : '확정된 장소를 유지하면서 날짜와 시간만 바꿀 수 있어요.'}</p><button type="button" className="outline-button" disabled={!me || busy || dirty} onClick={() => { if (scheduleEditOpen) { setScheduleEdit(null); F(''); } else openScheduleEdit(); }}>{scheduleEditOpen ? '변경 취소' : '일정 변경'}</button></div>}
+              <section className="card calendar" ref={calendarSection} tabIndex={-1}>
                 <div className="card-heading">
                   <div>
                     <h2>언제가 좋아요?</h2>
                   </div>
+                  <div className="calendar-heading-actions">
+                  <button type="button" className="outline-button calendar-add-event" disabled={!me || busy || dirty || saveStatus === 'saving'} onClick={() => setEventView({ date: selected < today ? today : selected, mode: 'create' })}>이벤트 추가 <CalendarPlus aria-hidden="true" /></button>
                   <button
-                    className="text-button"
+                    className="text-button calendar-today-button"
                     onClick={() => {
                       M(today.slice(0, 7));
                       D(today);
@@ -658,6 +851,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
                   >
                     오늘로 이동
                   </button>
+                  </div>
                 </div>
                 <div className="month-nav">
                   <button aria-label="이전 달" onClick={() => changeMonth(-1)}>
@@ -703,17 +897,18 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
                       count = members.filter((member) =>
                         member.slots.some((slot) => slot.startsWith(d + '|')),
                       ).length;
+                    const dayEvents = (state.events || []).filter(event => event.date === d);
                     return (
+                      <div className="calendar-day-cell" key={d}>
                       <button
-                        key={d}
                         disabled={d < today}
-                        aria-label={`${d}${d === today ? ' 오늘' : ''}${d === bestDay ? ' 추천 1순위 날짜' : ''}${holidays.length ? ' ' + holidays.join(', ') : ''}${mine ? ' 내가 선택한 날짜' : ''} ${count}명 선택`}
+                        aria-label={`${d}${d === today ? ' 오늘' : ''}${state.confirmed?.startsWith(d + '|') ? ' 확정' : ''}${d === bestDay ? ' 추천 1순위 날짜' : ''}${holidays.length ? ' ' + holidays.join(', ') : ''}${mine ? ' 내가 선택한 날짜' : ''} ${count}명 선택`}
                         aria-current={d === today ? 'date' : undefined}
                         title={holidays.join(' · ') || undefined}
                         aria-pressed={mine}
                         aria-haspopup="dialog"
                         onClick={() => openTime(d)}
-                        className={`day ${selected === d && d !== today ? 'selected' : ''} ${mine ? 'mine' : ''} ${d === today ? 'today' : ''} ${holidays.length ? 'holiday' : ''} ${weekday === 0 ? 'sunday' : weekday === 6 ? 'saturday' : ''} ${d === bestDay ? 'recommended' : ''}`}
+                        className={`day ${mine ? 'mine' : ''} ${d === today ? 'today' : ''} ${holidays.length ? 'holiday' : ''} ${weekday === 0 ? 'sunday' : weekday === 6 ? 'saturday' : ''} ${d === bestDay ? 'recommended' : ''} ${state.confirmed?.startsWith(d + '|') ? 'is-confirmed' : ''}`}
                       >
                         <span className="day-heading">
                           <span>{i + 1}</span>
@@ -722,8 +917,14 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
                           )}
                         </span>
                         {d === today && <span className="day-today">오늘</span>}
+                        {state.confirmed?.startsWith(d + '|') && <span className="day-confirmed"><Check aria-hidden="true" /> 확정</span>}
                         {count > 0 && <small>{count}명 선택</small>}
                       </button>
+                      {dayEvents.length > 0 && <button type="button" className="calendar-event-preview" disabled={!me || busy || dirty || saveStatus === 'saving'} aria-label={`${d} 이벤트 ${dayEvents.length}개: ${dayEvents[0].title}`} onClick={() => setEventView({ date: d, mode: 'list' })}>
+                        <span>{dayEvents[0].title}</span>
+                        {dayEvents.length > 1 && <small>+{dayEvents.length - 1}개</small>}
+                      </button>}
+                      </div>
                     );
                   })}
                 </div>
@@ -739,16 +940,18 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
                   )
                 )}
               </section>
+              </div>
+            </div>
+            {(!state.confirmed || scheduleEditOpen) && <div className="schedule-statistics">
+              {(!state.confirmed || scheduleEditOpen) && <>
               <section className="card results">
                 <div className="card-heading">
                   <div>
-                    <h2>참여 가능한 시간</h2>
+                    <h2>많이 겹치는 시간</h2>
                   </div>
                   <span className="tag">응답 통계</span>
                 </div>
-                <p className="subtext">
-                  참여 가능 인원: {memberCount}명
-                </p>
+          
                 {!showPlaces && <OverlapStatistics
                   ranks={ranks}
                   members={members}
@@ -758,7 +961,8 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
                   }}
                 />}
               </section>
-            </div>
+              </>}
+            </div>}
             {!configured && !me && state.members.length > 0 && <aside>
               <div className="meeting-actions">
                 {!configured && !me && state.members.length > 0 && (
@@ -774,87 +978,21 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
                       setSaveStatus('saved');
                     }}
                   >
-                    <UserPlus aria-hidden="true" />
                     <span>
                       체험 참여자 추가
                       <small>이 기기에서 다른 참여자의 응답을 추가해요</small>
                     </span>
-                    <ArrowRight aria-hidden="true" />
+                    <UserPlus aria-hidden="true" />
                   </button>
                 )}
               </div>
             </aside>}
           </div>
-          <section className="card friends" aria-labelledby="friends-title" hidden={showPlaces}>
-            <div className="card-heading">
-              <div>
-                <h2 id="friends-title">참여자별 응답 현황</h2>
-              </div>
-              <span className="response-summary">
-                <strong>{responded}</strong> / {memberCount}명 응답 완료
-              </span>
-            </div>
-            <div
-              className="progress"
-              role="progressbar"
-              aria-label="참여자 응답률"
-              aria-valuenow={responded}
-              aria-valuemin={0}
-              aria-valuemax={memberCount || 1}
-            >
-              <i style={{ width: responsePercent + '%' }} />
-            </div>
-            <div className="friend-list">
-              {state.members.map((m) => {
-                const days = availableDays(m.slots, today);
-                return (
-                  <article className="friend" key={m.id}>
-                    <strong className="friend-name">
-                      <MemberIdentity member={m}>
-                      {m.id === state.me && (
-                        <small className="me-badge">나</small>
-                      )}
-                      </MemberIdentity>
-                    </strong>
-                    {!m.responded && <span className="status">응답 대기</span>}
-                    <span className="vote-age">
-                      {m.responded ? (
-                        m.votedAt ? (
-                          <time
-                            dateTime={m.votedAt}
-                            title={new Date(m.votedAt).toLocaleString('ko-KR', {
-                              timeZone: 'Asia/Seoul',
-                            })}
-                          >
-                            {voteAgeLabel(m.votedAt, now)}
-                          </time>
-                        ) : (
-                          '응답 시각 정보 없음'
-                        )
-                      ) : (
-                        '아직 응답하지 않았어요'
-                      )}
-                    </span>
-                    <div className="friend-availability">
-                      <strong>가능한 요일 {days.weekdays.length}개</strong>
-                      <span>
-                        {days.weekdays.length
-                          ? days.weekdays.join(' · ')
-                          : '선택한 날짜 없음'}
-                      </span>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-            {!memberCount && (
-              <p className="subtext">아직 참여자가 없어요. 초대 링크를 공유해 주세요.</p>
-            )}
-          </section>
+          {showPlaces && <PlacePlanner key={`${room}:${state.me}:${state.resetVersion || ''}`} storageKey={`mm-place-drafts:${configured ? room : 'demo'}:${state.me}:${state.resetVersion || ''}`} state={state} busy={busy} onAction={placeAction} />}
           {me && <div className="meeting-reset-area"><button type="button" className="meeting-reset-button" disabled={busy || saveStatus === 'saving'} onClick={() => setResetOpen(true)}>일정·장소 초기화</button></div>}
           <footer>
             <span className="footer-brand">Meet Soon</span>
-            <p className="footer-copyright">© Sso. All Rights Reserved.</p>
+            <p className="footer-copyright">© Sso's</p>
           </footer>
         </div>
       </main>
@@ -901,11 +1039,11 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
             </div>
           </div>
           <p className="subtext">
-            참여 가능한 시간을 선택한 뒤 저장해 주세요.
+            {responseClosed ? '응답이 마감되어 시간을 수정할 수 없어요.' : scheduleEditOpen ? '가능한 시간을 모두 선택한 뒤 저장해 주세요. 상단 추천 날짜와 시간에 반영돼요.' : '참여 가능한 시간을 선택한 뒤 저장해 주세요.'}
           </p>
           <div className="time-actions">
             <button
-              disabled={!me || !!state.confirmed || selected < today || saveStatus === 'saving'}
+              disabled={!me || responseClosed || (!!state.confirmed && !scheduleEditOpen) || selected < today || saveStatus === 'saving'}
               onClick={() =>
                 changeSlots([
                   ...new Set([
@@ -918,7 +1056,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
               모두 선택
             </button>
             <button
-              disabled={!me || !!state.confirmed || selected < today || saveStatus === 'saving'}
+              disabled={!me || responseClosed || (!!state.confirmed && !scheduleEditOpen) || selected < today || saveStatus === 'saving'}
               onClick={() =>
                 changeSlots(
                   draftRef.current.filter((s) => !s.startsWith(selected + '|')),
@@ -934,7 +1072,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
                 count = selectedRanks.find((r) => r.slot === slot)?.count || 0;
               return (
                 <button
-                  disabled={!me || !!state.confirmed || selected < today || saveStatus === 'saving'}
+                  disabled={!me || busy || selected < today || saveStatus === 'saving' || (responseClosed || (!!state.confirmed && !scheduleEditOpen))}
                   key={t}
                   aria-pressed={slots.includes(slot)}
                   className={slots.includes(slot) ? 'chosen' : ''}
@@ -943,10 +1081,10 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
                   <span>{t}</span>
                   {count > 0 ? (
                     <small className="availability-badge has-people">
-                      <Users aria-hidden="true" />
                       {count}명 가능
+                      <Users aria-hidden="true" />
                     </small>
-                  ) : state.confirmed || selected < today ? (
+                  ) : !scheduleEditOpen && (responseClosed || state.confirmed || selected < today) ? (
                     <small className="availability-hint">
                       선택 마감
                     </small>
@@ -962,12 +1100,12 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
           )}
    
           <div className="time-modal-footer">
-          {(state.confirmed || statusText) && (
+          {((state.confirmed && !scheduleEditOpen) || statusText) && (
             <p className={'save-status ' + saveStatus} role="status">
-              {state.confirmed ? '약속이 확정되어 시간을 수정할 수 없어요' : statusText}
+              {state.confirmed && !scheduleEditOpen ? '약속이 확정되어 시간을 수정할 수 없어요' : statusText}
             </p>
           )}
-          {!state.confirmed && me && selected >= today ? (
+          {!responseClosed && (!state.confirmed || scheduleEditOpen) && me && selected >= today ? (
             <button className="primary" disabled={!dirty || saveStatus === 'saving'} onClick={async () => { if (await save()) setTimeOpen(false); }}>
               {saveStatus === 'saving' ? '저장 중…' : '저장'}
             </button>
@@ -995,7 +1133,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
       </dialog>
       {ready && !me && (
         <div className="overlay">
-          <form className="modal join-modal" onSubmit={join}>
+          <form className={`modal join-modal${animateJoin ? ' join-modal-enter' : ''}`} onSubmit={join}>
             <span className="modal-emoji">
               <CalendarDays aria-hidden="true" />
             </span>
@@ -1004,6 +1142,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
             <label htmlFor="nickname">닉네임</label>
             <input
               id="nickname"
+              data-filled={!!nickname.trim()}
               autoFocus
               autoComplete="nickname"
               maxLength={12}
@@ -1020,7 +1159,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
                 '참여 중…'
               ) : (
                 <>
-                  참여하기 <ArrowRight aria-hidden="true" />
+                  참여하기
                 </>
               )}
             </button>
@@ -1053,13 +1192,14 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
             {confirmedPlace && <div className="confirmed-place-summary"><strong>{confirmedPlace.name}</strong><span>{confirmedPlace.address}</span><a href={confirmedPlace.url} target="_blank" rel="noopener noreferrer">지도 보기 <ArrowUpRight aria-hidden="true" /></a></div>}
             {message && <p role="alert" className="form-error">{message}</p>}
             <div className="confirmation-buttons">
-              {!confirmedPlace && <button className="primary confirmation-place-action" autoFocus onClick={() => { setConfirmOpen(false); setStep('place'); }}>장소 정하기 <ArrowRight aria-hidden="true" /></button>}
+              {!confirmedPlace && <button className="primary confirmation-place-action" autoFocus onClick={() => { setConfirmOpen(false); setStep('place'); }}>장소 정하기</button>}
               <button className={confirmedPlace ? 'primary' : 'outline-button'} autoFocus={!!confirmedPlace} onClick={() => setConfirmOpen(false)}>확인</button>
               <button className="cancel-button confirmation-cancel" disabled={busy || dirty || !me} onClick={confirm}>{busy ? '취소 중…' : '확정 취소'}</button>
             </div>
           </>
         )}
       </dialog>
+      {showScrollTop && me && <button type="button" className="scroll-to-top" aria-label="맨 위로 이동" title="맨 위로 이동" onClick={() => window.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' })}><ArrowUp aria-hidden="true" /></button>}
       {message && me && (
         <div className="toast" role="status" onClick={() => E('')}>
           {message}

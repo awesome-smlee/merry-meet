@@ -51,7 +51,11 @@ test('database persists place workflow, authenticates and clears place confirmat
     await assert.rejects(call('place-confirm', { id: 'missing' }), /후보/);
     assert.equal((await call('place-confirm', { id })).confirmedPlace, id);
     await assert.rejects(call('place-add', candidate), /취소/);
-    assert.equal((await call('place-unconfirm')).confirmedPlace, null);
+    const reopened = await call('place-unconfirm');
+    assert.equal(reopened.confirmedPlace, null);
+    assert.equal(reopened.confirmed, '2027-01-01|10:00');
+    assert.deepEqual(reopened.placeVotes, toggled.placeVotes);
+    assert.deepEqual(reopened.places, toggled.places);
     await call('place-confirm', { id });
     assert.equal((await call('unconfirm')).confirmedPlace, null);
     assert.equal((await call('read')).places.length, 2);

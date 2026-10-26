@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ANIMAL_AVATARS, memberAvatar } from '../lib/avatars.mjs';
 const names = ['고양이', '강아지', '곰', '토끼', '여우', '판다', '코알라', '돼지', '호랑이', '사자', '개구리', '펭귄'];
 
-export default function ProfileEditor({ member, onSave, onClose }) {
+export default function ProfileEditor({ member, createdRooms = [], currentRoom, onSave, onClose }) {
   const dialog = useRef(null);
   const [nickname, setNickname] = useState(member.nickname);
   const [avatar, setAvatar] = useState(() => memberAvatar(member).split('/').pop().replace('.svg', ''));
@@ -38,9 +38,19 @@ export default function ProfileEditor({ member, onSave, onClose }) {
       </fieldset>
       <div className="profile-nickname-field">
       <label htmlFor="profile-nickname">닉네임</label>
-      <input id="profile-nickname" autoFocus autoComplete="nickname" maxLength={12} required value={nickname} disabled={saving} onChange={event => setNickname(event.target.value)} aria-describedby={error ? 'profile-error' : undefined} />
+      <input id="profile-nickname" data-filled={!!nickname.trim()} autoFocus autoComplete="nickname" maxLength={12} required value={nickname} disabled={saving} onChange={event => setNickname(event.target.value)} aria-describedby={error ? 'profile-error' : undefined} />
       </div>
       {error && <p id="profile-error" className="form-error" role="alert">{error}</p>}
+      {createdRooms.length > 0 && <section className="profile-rooms" aria-labelledby="profile-rooms-title">
+        <h3 id="profile-rooms-title">내 모임</h3>
+        <ul>{createdRooms.map(room => <li key={room.room}>
+          <a href={`?room=${encodeURIComponent(room.room)}`} aria-current={room.room === currentRoom ? 'page' : undefined} aria-disabled={saving || undefined} tabIndex={saving ? -1 : undefined} onClick={event => { if (pending.current || room.room === currentRoom) event.preventDefault(); }}>
+            <span className="profile-room-name">{room.name}</span>
+            <span className="profile-room-owner">방장</span>
+            {room.room === currentRoom && <span className="profile-room-current">현재 모임</span>}
+          </a>
+        </li>)}</ul>
+      </section>}
       <div className="profile-actions"><button type="button" className="outline-button" disabled={saving} onClick={onClose}>취소</button><button className="primary" disabled={saving || !nickname.trim()}>{saving ? '저장 중…' : '저장하기'}</button></div>
     </form>
   </dialog>;

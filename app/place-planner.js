@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { ExternalLink, Check, ArrowUpRight, Plus, Trash2 } from 'lucide-react';
-import { REGIONS, validatePlacePayload, placeVoteIds } from '../lib/places.mjs';
+import { REGIONS, validatePlacePayload, validatePlaceUrl, placeVoteIds } from '../lib/places.mjs';
 import MemberIdentity from './member-identity';
 import { PlaceSkeleton } from './skeleton';
 
@@ -25,6 +25,13 @@ export default function PlacePlanner({ state, busy, onAction, storageKey }) {
   const [drafts, setDrafts] = useState([]);
   const [selectedDraftIds, setSelectedDraftIds] = useState([]);
   const [input, setInput] = useState({ name: '', url: '' });
+  const [linkTouched, setLinkTouched] = useState(false);
+  let linkError = '';
+  if (input.url) {
+    try { validatePlaceUrl(input.url); }
+    catch (error) { linkError = error.message; }
+  }
+  const showLinkError = linkTouched && !!linkError;
   const [restored, setRestored] = useState(false);
   useEffect(() => {
     try {
@@ -136,14 +143,14 @@ export default function PlacePlanner({ state, busy, onAction, storageKey }) {
         <p>장소명으로 검색한 지도예요. 정확한 위치는 지도 앱에서 확인해 주세요.</p>
       </div>
     </section>}
-      <div className={'card place-voting-workspace' + (state.confirmedPlace ? ' is-locked' : '')}>
+      <div className={'card place-voting-workspace' + (state.confirmedPlace ? ' is-locked' : '') + (!places.length ? ' is-empty' : '')}>
       {places.length > 0 && <div className="place-voting-tabs" aria-label="장소 투표 화면">
         <button type="button" aria-pressed={!resultsOpen} disabled={!!state.confirmedPlace} onClick={() => setShowResults(false)}>투표하기</button>
         <button type="button" aria-pressed={resultsOpen} onClick={() => setShowResults(true)}>투표 결과 <small className="place-vote-count">({voteCount}명 투표)</small></button>
       </div>}
       <section className="place-voting-view" hidden={resultsOpen} aria-labelledby="place-voting-heading">
       <h3 id="place-voting-heading">장소 투표 <small>· {places.length}개</small></h3>
-      <div className="place-ballot-summary"><span>{state.confirmedPlace ? '장소 확정 완료' : '가고 싶은 장소 한 곳을 선택하세요'}</span><span>{voteCount} / {state.members.length}명 투표</span></div>
+      {places.length > 0 && <div className="place-ballot-summary"><span>{state.confirmedPlace ? '장소 확정 완료' : '가고 싶은 장소 한 곳을 선택하세요'}</span><span>{voteCount} / {state.members.length}명 투표</span></div>}
       <fieldset className="place-ballot" disabled={locked}>
         <legend className="sr-only">투표할 장소 선택</legend>
         {places.map(place => {
@@ -171,7 +178,7 @@ export default function PlacePlanner({ state, busy, onAction, storageKey }) {
           setShowResults(true);
         }
       }}>{busy ? '투표 중…' : '장소 투표'}</button></div>}
-      {!places.length && <p className="empty place-empty-message">아직 등록된 장소가 없어요. 장소를 등록하면 투표 후보로 표시돼요.</p>}
+      {!places.length && <p className="place-empty-prompt">장소를 추천해주세요.</p>}
       </section>
       {resultsOpen && <section className="place-results-view" aria-labelledby="place-results-heading">
         <div className="place-results-heading"><h3 id="place-results-heading">현재 투표 현황</h3></div>
@@ -199,12 +206,12 @@ export default function PlacePlanner({ state, busy, onAction, storageKey }) {
       {!confirmed && <p className="place-flow-note">확정 전까지 변경할 수 있어요.</p>}
       <div className="place-planning-columns">
       <section className="place-planning-panel region-panel" aria-labelledby="region-heading">
-      <h3 id="region-heading">만날 지역 정하기</h3>
+      <h3 id="region-heading">만나고 싶은 지역</h3>
       
       <div className="region-options">{regions.map(value => <button key={value} className={selectedRegion === value ? 'active' : ''} aria-pressed={selectedRegion === value} disabled={locked} onClick={() => {
         setRegion(value);
         if (!locked) void act('region-vote', { region: value });
-      }}>{value}<small>{regionCount(value)}표</small></button>)}</div>
+      }}>{value === '어디든 좋아요' ? '어디든 좋아요❤️' : value}</button>)}</div>
       </section>
       <section className="place-planning-panel venue-panel" aria-labelledby="venue-heading">
       <h3 id="venue-heading">장소 제안&nbsp;<small>· 여러 개 추가 가능</small></h3>
@@ -223,12 +230,13 @@ export default function PlacePlanner({ state, busy, onAction, storageKey }) {
           setProgress('');
           form.reset();
           setInput({ name: '', url: '' });
+          setLinkTouched(false);
           form.elements.namedItem('name').focus();
         } catch (e) { setError(e.message); }
       }}>
-        <label>장소 이름<input name="name" required maxLength={60} placeholder="예: 성수 카페" disabled={!restored} value={input.name} onChange={event => setInput(current => ({ ...current, name: event.target.value }))} /></label>
-        <label>지도 링크<input name="url" type="url" required maxLength={500} placeholder="https://naver.me/…" disabled={!restored} value={input.url} onChange={event => setInput(current => ({ ...current, url: event.target.value }))} aria-describedby="place-map-link-help" /><span id="place-map-link-help" className="place-input-help">사용하는 지도 앱에서 장소 공유 링크를 복사해 붙여 넣어 주세요.</span></label>
-        <button className="outline-button place-add-draft" disabled={locked}>장소 목록에 추가<Plus aria-hidden="true" /></button>
+        <label>장소 이름<input name="name" data-filled={!!input.name.trim()} required maxLength={60} placeholder="예: 성수 카페" disabled={!restored} value={input.name} onChange={event => setInput(current => ({ ...current, name: event.target.value }))} /></label>
+        <label>지도 링크<input name="url" data-filled={!!input.url.trim() && !linkError} type="url" required maxLength={500} placeholder="https://naver.me/…" disabled={!restored} value={input.url} onChange={event => { setInput(current => ({ ...current, url: event.target.value })); setLinkTouched(false); }} onBlur={() => setLinkTouched(true)} aria-invalid={showLinkError} aria-describedby={showLinkError ? 'place-map-link-error' : 'place-map-link-help'} />{showLinkError ? <span id="place-map-link-error" className="form-error" role="alert">{linkError}</span> : <span id="place-map-link-help" className="place-input-help">링크를 복사해 붙여 넣어 주세요.</span>}</label>
+        <button className="outline-button place-add-draft" disabled={locked || !input.name.trim() || !input.url.trim() || !!linkError}>장소 목록에 추가<Plus aria-hidden="true" /></button>
       </form>
       {drafts.length > 0 && <div className="place-draft-list">
         <div className="place-draft-heading"><h4>등록할 장소 <span>{drafts.length}개</span></h4></div>
