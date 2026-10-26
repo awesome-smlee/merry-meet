@@ -33,6 +33,7 @@ export default function MeetingEntry(props) {
   const [selected, setSelected] = useState(null);
   const [createdRooms, setCreatedRooms] = useState([]);
   const createdRoomsKey = `mm-created-rooms:v1:${props.configured ? 'server' : 'demo'}`;
+  const activeRoomKey = `mm-active-room:${props.configured ? 'server' : 'demo'}`;
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [invitedRoom, setInvitedRoom] = useState('');
@@ -71,6 +72,9 @@ export default function MeetingEntry(props) {
     firstCreation.current = null;
     const url = new URL(location.href);
     url.searchParams.delete('room');
+    url.searchParams.delete('meeting');
+    url.searchParams.delete('join');
+    try { sessionStorage.removeItem(activeRoomKey); } catch {}
     history.replaceState(null, '', url);
     setSelected(null);
     setScreen('create');
@@ -100,6 +104,9 @@ export default function MeetingEntry(props) {
       const url = new URL(location.href);
       url.searchParams.delete('room');
       url.searchParams.delete('invite');
+      url.searchParams.delete('meeting');
+      url.searchParams.delete('join');
+      try { sessionStorage.removeItem(activeRoomKey); } catch {}
       history.replaceState(null, '', url);
       setSelected(null);
       setScreen('home');
@@ -143,7 +150,10 @@ export default function MeetingEntry(props) {
       }
       const url = new URL(location.href);
       url.searchParams.delete('invite');
-      url.searchParams.set('room', room.room);
+      url.searchParams.delete('room');
+      url.searchParams.delete('join');
+      url.searchParams.set('meeting', '1');
+      try { sessionStorage.setItem(activeRoomKey, room.room); } catch {}
       history.replaceState(null, '', url);
       if (action === 'create' && entryPage.current && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         const page = entryPage.current;
@@ -193,8 +203,25 @@ export default function MeetingEntry(props) {
       localStorage.setItem('mm-room:' + testRoom.room, JSON.stringify(testRoom));
     }
     const params = new URLSearchParams(location.search);
+    // Remove legacy room codes from the visible URL before doing any lookup.
+    if (params.has('invite') || params.has('room')) {
+      const cleanUrl = new URL(location.href);
+      cleanUrl.searchParams.delete('invite');
+      cleanUrl.searchParams.delete('room');
+      cleanUrl.searchParams.set('join', '1');
+      history.replaceState(null, '', cleanUrl);
+    }
+    if (params.get('join') === '1') {
+      setScreen('join');
+      setInitializing(false);
+      return;
+    }
     const invitation = params.get('invite');
-    const existingRoom = params.get('room');
+    let existingRoom = params.get('room');
+    if (!existingRoom && params.get('meeting') === '1') {
+      try { existingRoom = sessionStorage.getItem(activeRoomKey); } catch {}
+      if (!existingRoom) setScreen('join');
+    }
     const target = invitation || existingRoom;
     if (target) {
       setScreen('join');
@@ -226,6 +253,9 @@ export default function MeetingEntry(props) {
     const url = new URL(location.href);
     url.searchParams.delete('room');
     url.searchParams.delete('invite');
+    url.searchParams.delete('meeting');
+    url.searchParams.delete('join');
+    try { sessionStorage.removeItem(activeRoomKey); } catch {}
     history.replaceState(null, '', url);
     setName('');
     setInvitedRoom('');
@@ -234,7 +264,7 @@ export default function MeetingEntry(props) {
     setSelected(null);
   }
   if (initializing) return <MeetingSkeleton />;
-  if (selected) return <FirstEntryBoundary key={selected.room} onFailure={recoverFirstEntry}><Meeting {...props} roomName={selected.name} createdRooms={createdRooms} onCreateMeeting={createMeeting} onDeleteMeeting={deleteMeeting} onInitialEntryComplete={completeFirstEntry} animateJoin={animateJoin} /></FirstEntryBoundary>;
+  if (selected) return <FirstEntryBoundary key={selected.room} onFailure={recoverFirstEntry}><Meeting {...props} roomCode={selected.room} roomName={selected.name} createdRooms={createdRooms} onCreateMeeting={createMeeting} onDeleteMeeting={deleteMeeting} onInitialEntryComplete={completeFirstEntry} animateJoin={animateJoin} /></FirstEntryBoundary>;
   return <main ref={entryPage} className="entry-page">
     <a className="brand entry-brand" href="/">Meet Soon</a>
     <section className="entry-card" aria-labelledby="entry-title">

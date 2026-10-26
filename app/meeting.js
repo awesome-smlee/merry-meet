@@ -50,7 +50,7 @@ const PlacePlanner = dynamic(() => import('./place-planner'), {
 const empty = { members: [], confirmed: null, me: null };
 const ProfileEditor = dynamic(() => import('./profile-editor'), { ssr: false });
 const MeetingEvents = dynamic(() => import('./meeting-events'), { ssr: false });
-export default function Meeting({ configured, initialDate, holidayCalendar, roomName = '우리 모임', createdRooms = [], onCreateMeeting, onDeleteMeeting, onInitialEntryComplete, animateJoin = false }) {
+export default function Meeting({ configured, initialDate, holidayCalendar, roomCode, roomName = '우리 모임', createdRooms = [], onCreateMeeting, onDeleteMeeting, onInitialEntryComplete, animateJoin = false }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [eventView, setEventView] = useState(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -223,7 +223,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
     T(day);
     M(day.slice(0, 7));
     D(day);
-    const r = new URLSearchParams(location.search).get('room') || '';
+    const r = roomCode;
     Q(r);
     if (!configured) {
       try {
@@ -243,7 +243,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
     tokenRef.current = saved;
     K(saved);
     R(true);
-  }, [configured]);
+  }, [configured, roomCode]);
   useEffect(() => {
     if (!ready || !configured || !token) return;
     request('read');

@@ -6,6 +6,7 @@ const siteUrl = process.env.SITE_URL ||
 const description = '참여자의 가능한 시간을 모아 약속을 정하고, 만날 장소를 함께 선택하세요.';
 export const metadata = {
   metadataBase: new URL(siteUrl),
+  referrer: 'no-referrer',
   title: 'Meet Soon',
   description,
   openGraph: {
