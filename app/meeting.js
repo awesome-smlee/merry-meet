@@ -1,4 +1,5 @@
 'use client';
+import FadeUpWrapper from './fade-up-wrapper';
 import { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import MeetingSkeleton, { PlaceSkeleton, StatisticsSkeleton } from './skeleton';
@@ -653,7 +654,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
           {inviteMessage && <p role="status">{inviteMessage}</p>}
         </div>}
       </dialog>
-      {state.confirmed && <section className="confirmed-focus" aria-labelledby="confirmed-focus-title">
+      {state.confirmed && <FadeUpWrapper as="section" className="confirmed-focus" aria-labelledby="confirmed-focus-title">
         <div className="confirmed-focus-details">
           <h2 id="confirmed-focus-title" className="confirmed-focus-label"><CalendarCheck aria-hidden="true" /> {confirmedPlace ? '최종 확정' : '일정 확정'}</h2>
           <dl className="confirmed-focus-summary">
@@ -670,7 +671,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
           <button type="button" className="outline-button" disabled={busy || dirty || saveStatus === 'saving'} onClick={() => { if (scheduleEditOpen) { setScheduleEdit(null); F(''); } else openScheduleEdit(); }}>{scheduleEditOpen ? '변경 취소' : '일정 변경'}</button>
           <button type="button" className="outline-button" disabled={!confirmedPlace || busy || dirty || saveStatus === 'saving'} onClick={openPlaceEdit}>장소 변경</button>
         </div>}
-      </section>}
+      </FadeUpWrapper>}
       <main className={showPlaces ? 'place-workspace' : 'time-workspace'}>
         <nav className="meeting-steps" aria-label="약속 정하기 단계">
           <button aria-current={!showPlaces ? 'step' : undefined} onClick={() => setStep('time')}><span>{state.confirmed && !scheduleEditOpen ? '✓' : '1'}</span><strong>날짜/시간 정하기</strong><small>{scheduleEditOpen ? '일정 변경 중' : state.confirmed ? '확정 완료' : '가능한 시간 선택'}</small></button>
@@ -751,7 +752,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
         
           <div className={`schedule-dashboard${state.confirmed && !scheduleEditOpen ? ' is-confirmed' : ''}`} hidden={showPlaces}>
           {(!state.confirmed || scheduleEditOpen) && (
-            <section className="recommend" aria-labelledby="recommend-title">
+            <FadeUpWrapper as="section" className="recommend" aria-labelledby="recommend-title">
               <div className="recommend-heading">
                 <div className="section-symbol"><CalendarCheck aria-hidden="true" /></div>
                 <div>
@@ -800,9 +801,9 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
               ) : (
                 <div className="recommend-empty">아직 추천할 일정이 없어요.<br /><span>달력에서 가능한 시간을 선택하면 추천 일정을 확인할 수 있어요.</span></div>
               )}
-            </section>
+            </FadeUpWrapper>
           )}
-          <section className="card friends" aria-labelledby="friends-title" hidden={showPlaces}>
+          <FadeUpWrapper as="section" className="card friends" aria-labelledby="friends-title" hidden={showPlaces}>
             <div className="card-heading">
               <div>
                 <h2 id="friends-title">참여자별 응답 현황</h2>
@@ -867,11 +868,11 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
             {!memberCount && (
               <p className="subtext empty-state-text">아직 참여자가 없어요. 초대 링크를 공유해 주세요.</p>
             )}
-          </section>
+          </FadeUpWrapper>
             <div className="schedule-calendar">
               <div className="calendar-disclosure">
                 {state.confirmed && <div className="calendar-edit-notice"><p>{scheduleEditOpen ? '기존에 선택한 일정과 참여 가능 인원을 확인하고, 달력에서 새 날짜/시간을 선택해 주세요. 장소는 그대로 유지돼요.' : '확정된 장소를 유지하면서 날짜와 시간만 바꿀 수 있어요.'}</p><button type="button" className="outline-button" disabled={!me || busy || dirty} onClick={() => { if (scheduleEditOpen) { setScheduleEdit(null); F(''); } else openScheduleEdit(); }}>{scheduleEditOpen ? '변경 취소' : '일정 변경'}</button></div>}
-              <section className="card calendar" ref={calendarSection} tabIndex={-1}>
+              <FadeUpWrapper as="section" className="card calendar" ref={calendarSection} tabIndex={-1}>
                 <div className="card-heading">
                   <div>
                     <h2>언제가 좋아요?</h2>
@@ -980,12 +981,12 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
                     </p>
                   )
                 )}
-              </section>
+              </FadeUpWrapper>
               </div>
             </div>
             {(!state.confirmed || scheduleEditOpen) && <div className="schedule-statistics">
               {(!state.confirmed || scheduleEditOpen) && <>
-              <section className="card results">
+              <FadeUpWrapper as="section" className="card results">
                 <div className="card-heading">
                   <div>
                     <h2>많이 겹치는 시간</h2>
@@ -1001,7 +1002,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
                     M(day.slice(0, 7));
                   }}
                 />}
-              </section>
+              </FadeUpWrapper>
               </>}
             </div>}
             {!configured && !me && state.members.length > 0 && <aside>

@@ -1,4 +1,5 @@
 'use client';
+import FadeUpWrapper from './fade-up-wrapper';
 import { useEffect, useRef, useState } from 'react';
 import { ExternalLink, Check, ArrowUpRight, Plus, Trash2 } from 'lucide-react';
 import { REGIONS, validatePlacePayload, validatePlaceUrl, placeVoteIds } from '../lib/places.mjs';
@@ -128,7 +129,7 @@ export default function PlacePlanner({ state, busy, onAction, storageKey }) {
   if (!restored) return <PlaceSkeleton />;
   return (
     <>
-    {confirmed && <section className="place-confirmed-summary" aria-label="확정된 장소">
+    {confirmed && <FadeUpWrapper as="section" className="place-confirmed-summary" aria-label="확정된 장소">
       <div className="place-confirmed-info"><span className="place-confirmed-label"><Check aria-hidden="true" />장소 확정</span><strong>{confirmed.region} · {confirmed.name}</strong><a href={confirmed.url} target="_blank" rel="noopener noreferrer">지도 앱에서 열기 <ArrowUpRight aria-hidden="true" /></a></div>
       <button type="button" className="place-reopen-button cancel-button" disabled={busy || !state.me || registering} onClick={() => act('place-unconfirm', {})}>{busy ? '취소 중…' : '장소 확정 취소'}</button>
       <div className="place-confirmed-map">
@@ -142,13 +143,13 @@ export default function PlacePlanner({ state, busy, onAction, storageKey }) {
         />
         <p>장소명으로 검색한 지도예요. 정확한 위치는 지도 앱에서 확인해 주세요.</p>
       </div>
-    </section>}
+    </FadeUpWrapper>}
       <div className={'card place-voting-workspace' + (state.confirmedPlace ? ' is-locked' : '') + (!places.length ? ' is-empty' : '')}>
       {places.length > 0 && <div className="place-voting-tabs" aria-label="장소 투표 화면">
         <button type="button" aria-pressed={!resultsOpen} disabled={!!state.confirmedPlace} onClick={() => setShowResults(false)}>투표하기</button>
         <button type="button" aria-pressed={resultsOpen} onClick={() => setShowResults(true)}>투표 결과 <small className="place-vote-count">({voteCount}명 투표)</small></button>
       </div>}
-      <section className="place-voting-view" hidden={resultsOpen} aria-labelledby="place-voting-heading">
+      <FadeUpWrapper as="section" className="place-voting-view" hidden={resultsOpen} aria-labelledby="place-voting-heading">
       <h3 id="place-voting-heading">장소 투표 <small>· {places.length}개</small></h3>
       {places.length > 0 && <div className="place-ballot-summary"><span>{state.confirmedPlace ? '장소 확정 완료' : '가고 싶은 장소 한 곳을 선택하세요'}</span><span>{voteCount} / {state.members.length}명 투표</span></div>}
       <fieldset className="place-ballot" disabled={locked}>
@@ -179,8 +180,8 @@ export default function PlacePlanner({ state, busy, onAction, storageKey }) {
         }
       }}>{busy ? '투표 중…' : '장소 투표'}</button></div>}
       {!places.length && <p className="place-empty-prompt">장소를 추천해주세요.</p>}
-      </section>
-      {resultsOpen && <section className="place-results-view" aria-labelledby="place-results-heading">
+      </FadeUpWrapper>
+      {resultsOpen && <FadeUpWrapper as="section" className="place-results-view" aria-labelledby="place-results-heading">
         <div className="place-results-heading"><h3 id="place-results-heading">현재 투표 현황</h3></div>
         <p className="subtext">{voteCount} / {state.members.length}명 투표</p>
         <div className="place-result-chart" aria-label="장소별 득표 현황">
@@ -197,9 +198,9 @@ export default function PlacePlanner({ state, busy, onAction, storageKey }) {
         {!state.confirmedPlace && <div className="place-ballot-footer"><span>{selectedResult ? <><strong>{selectedResult.name}</strong> 선택</> : '확정할 장소 카드를 선택하세요.'}</span><div className="place-result-actions"><button type="button" className="outline-button" disabled={locked} onClick={() => { setShowResults(false); setResultChoice(null); }}>투표 변경</button><button type="button" className="primary" disabled={locked || !selectedResult || voteCount === 0} onClick={async () => {
           if (selectedResult && await act('place-confirm', { id: selectedResult.id })) setCompletedPlace(selectedResult);
         }}>{busy ? '확정 중…' : '장소 확정'}</button></div></div>}
-      </section>}
+      </FadeUpWrapper>}
       </div>
-    <section className={'card place-planner' + (state.confirmedPlace ? ' is-locked' : '')} aria-labelledby="place-heading">
+    <FadeUpWrapper as="section" className={'card place-planner' + (state.confirmedPlace ? ' is-locked' : '')} aria-labelledby="place-heading">
       <h2 id="place-heading">어디서 만날까요?</h2>
       {state.confirmedPlace && <p className="place-locked-note">장소가 확정되어 선택을 변경할 수 없어요. 변경하려면 장소 확정을 취소해 주세요.</p>}
 
@@ -277,7 +278,7 @@ export default function PlacePlanner({ state, busy, onAction, storageKey }) {
           }}>삭제</button>
         </div>
       </dialog>
-    </section>
+    </FadeUpWrapper>
     </>
   );
 }

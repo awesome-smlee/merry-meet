@@ -1,0 +1,27 @@
+.wrapper {
+  min-width: 0;
+  opacity: 0;
+  transform: translateY(var(--fade-distance, 24px));
+  transition:
+    opacity var(--fade-duration, 600ms) ease-out var(--fade-delay, 0ms),
+    transform var(--fade-duration, 600ms) ease-out var(--fade-delay, 0ms);
+}
+
+.wrapper[data-visible='true'] {
+  opacity: 1;
+  transform: none;
+}
+
+.wrapper:focus-within {
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce), print {
+  .wrapper {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
