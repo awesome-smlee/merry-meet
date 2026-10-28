@@ -52,6 +52,7 @@ const ProfileEditor = dynamic(() => import('./profile-editor'), { ssr: false });
 const MeetingEvents = dynamic(() => import('./meeting-events'), { ssr: false });
 export default function Meeting({ configured, initialDate, holidayCalendar, roomCode, invitationToken, roomName = '우리 모임', createdRooms = [], onCreateMeeting, onDeleteMeeting, onInitialEntryComplete, animateJoin = false }) {
   const [profileOpen, setProfileOpen] = useState(false);
+  const [votingSlot, setVotingSlot] = useState(null);
   const [eventView, setEventView] = useState(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   useEffect(() => {
@@ -448,6 +449,24 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
       if (refreshAfterDeadline) void request('read');
     }
   }
+  async function voteForCandidate(slot) {
+    if (!me || busy || savingRef.current || (state.confirmed && !scheduleEditOpen)) return;
+    if (me.responded && me.slots.includes(slot)) return;
+    if (responsesClosed(latestState.current)) {
+      setNow(Date.now());
+      E('응답이 마감되어 시간을 수정할 수 없어요.');
+      return;
+    }
+    if (!validSlot(slot, today)) return;
+    E('');
+    setVotingSlot(slot);
+    try {
+      changeSlots([...new Set([...draftRef.current, slot])]);
+      if (await save()) E('투표했어요. 후보와 참여 인원이 다시 집계됐어요.');
+    } finally {
+      setVotingSlot(null);
+    }
+  }
   async function confirm(candidateSlot) {
     if (scheduleEditOpen && typeof candidateSlot === 'string') return saveScheduleEdit(candidateSlot);
     if (!me || busy || dirtyRef.current || savingRef.current) return;
@@ -747,8 +766,11 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
                     <strong>{dateLabel(r.slot.slice(0, 10))} · {r.slot.split('|')[1]}</strong>
                     <span className="recommend-attendees"><span>{r.count}명 가능 |</span>{members.filter((m) => m.responded && m.slots.includes(r.slot)).map((m) => <MemberIdentity key={m.id} member={m} />)}</span>
                   </div>
-                  <div className="recommend-confirm-overlay">
-                    <button type="button" className="confirm-action card-confirm" disabled={!me || busy || dirty} onClick={() => confirm(r.slot)}>
+                  <div className="recommend-actions">
+                    <button type="button" className="candidate-vote" disabled={!me || busy || responseClosed || saveStatus === 'saving' || (me.responded && me.slots.includes(r.slot))} onClick={() => voteForCandidate(r.slot)}>
+                      {votingSlot === r.slot ? '투표 중…' : me?.responded && me.slots.includes(r.slot) ? '투표 완료' : '투표하기'}
+                    </button>
+                    <button type="button" className="confirm-action card-confirm" disabled={!me || busy || dirty || saveStatus === 'saving'} onClick={() => confirm(r.slot)}>
                       {busy ? '확정 중…' : '약속 확정'}<CalendarCheck aria-hidden="true" />
                     </button>
                   </div>
@@ -764,8 +786,11 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
                           {pick === r.slot ? <Check aria-hidden="true" /> : null}
                         </span>
                       </button>
-                      <div className="recommend-confirm-overlay">
-                        <button type="button" className="confirm-action card-confirm" disabled={!me || busy || dirty} onClick={() => confirm(r.slot)}>
+                      <div className="recommend-actions">
+                        <button type="button" className="candidate-vote" disabled={!me || busy || responseClosed || saveStatus === 'saving' || (me.responded && me.slots.includes(r.slot))} onClick={() => voteForCandidate(r.slot)}>
+                          {votingSlot === r.slot ? '투표 중…' : me?.responded && me.slots.includes(r.slot) ? '투표 완료' : '투표하기'}
+                        </button>
+                        <button type="button" className="confirm-action card-confirm" disabled={!me || busy || dirty || saveStatus === 'saving'} onClick={() => confirm(r.slot)}>
                           {busy ? '확정 중…' : '약속 확정'}<CalendarCheck aria-hidden="true" />
                         </button>
                       </div>

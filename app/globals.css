@@ -989,6 +989,18 @@ h2 {
   background: linear-gradient(145deg, #f5f9ff, #e6f0ff);
   box-shadow: 0 5px 0 #dfebfc;
 }
+.recommend-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+  margin-top: auto;
+  padding-top: 8px;
+}
+.recommend-actions > button { flex: 1 1 100px; min-width: 0; min-height: 44px; }
+.candidate-vote { border: 1px solid var(--blue); border-radius: 10px; padding: 10px 12px; background: var(--blue); color: white; font-size: 12px; }
+.candidate-vote:disabled { border-color: var(--border); background: var(--surface-muted); color: var(--muted); cursor: default; }
 .recommend-confirm-overlay {
   position: absolute;
   inset: 0;
