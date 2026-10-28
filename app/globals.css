@@ -2215,6 +2215,12 @@ footer > small {
     0 25px 90px #365f9b30,
     inset 0 1px 1px white;
 }
+/* Native modal dialogs must be centered relative to the viewport. */
+dialog.modal {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+}
 .modal-emoji {
   display: grid;
   place-items: center;
