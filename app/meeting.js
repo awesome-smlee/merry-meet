@@ -736,7 +736,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
               <div className="recommend-heading">
                 <div className="section-symbol"><CalendarCheck aria-hidden="true" /></div>
                 <div>
-                  <h2 id="recommend-title">추천 날짜와 시간</h2>
+                  <h2 id="recommend-title">확정 일정 후보</h2>
                   <p>날짜별로 가장 많은 인원이 가능한 시간을 추천해요.</p>
                   <p className="confirm-speech">약속 확정은 한 명이 마지막에 해주세요!</p>
                 </div>
@@ -745,7 +745,6 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
                 <div className="recommend-shortlist">{recommendedDays.map(r => <div className="recommend-short-row recommend-option" key={r.slot} tabIndex={0}>
                   <div className="recommend-details">
                     <strong>{dateLabel(r.slot.slice(0, 10))} · {r.slot.split('|')[1]}</strong>
-                    <span className="recommend-attendees"><span>{r.count}명 가능 |</span>{members.filter((m) => m.responded && m.slots.includes(r.slot)).map((m) => <MemberIdentity key={m.id} member={m} />)}</span>
                   </div>
                   <div className="recommend-confirm-overlay">
                     <button type="button" className="confirm-action card-confirm" disabled={!me || busy || dirty} onClick={() => confirm(r.slot)}>
@@ -758,10 +757,8 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
                   {recommendedDays.map((r, i) => (
                     <div key={r.slot} className={'recommend-option ' + (i === 0 ? 'best ' : '') + (pick === r.slot ? 'selected' : '')}>
                       <button className="recommend-choice" onClick={() => F(r.slot)} aria-pressed={pick === r.slot}>
-                        <strong>{dateLabel(r.slot.slice(0, 10))} · {r.slot.split('|')[1]}</strong>
-                        <span className="recommend-attendees"><span>{r.count}명 가능 |</span>{members.filter((m) => m.responded && m.slots.includes(r.slot)).map((m) => <MemberIdentity key={m.id} member={m} />)}</span>
+                        <strong>{dateLabel(r.slot.slice(0, 10))} {r.slot.split('|')[1]}</strong>
                         <span className="recommend-link">
-                          {pick === r.slot ? '선택한 시간' : '이 시간 선택'}
                           {pick === r.slot ? <Check aria-hidden="true" /> : null}
                         </span>
                       </button>
@@ -832,7 +829,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
                       <strong>가능한 일정</strong>
                       <span className={!dates.length ? 'empty-state-text' : undefined}>
                         {dates.length
-                          ? dates.map((date) => `${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))}`).join(', ')
+                          ? dates.map((date) => `${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))} (${new Intl.DateTimeFormat('ko-KR', { weekday: 'short', timeZone: 'Asia/Seoul' }).format(new Date(`${date}T00:00:00+09:00`))})`).join(', ')
                           : '선택한 날짜 없음'}
                       </span>
                     </div>

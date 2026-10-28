@@ -113,12 +113,6 @@ body:has(.time-workspace), body:has(.place-workspace) { background: #eef1f5; }
 .time-workspace .calendar .day:not(:disabled):not(.is-confirmed):not(.today):hover { border-color: #9db4d1; }
 .time-workspace .results { background: #e9edf3; }
 .time-workspace .results .tag { background: #f7f9fc; color: #536780; }
-.time-workspace .overlap-metric { background: #f8fafd; border-color: #d8e0ea; box-shadow: none; border-radius: 16px; }
-.time-workspace .overlap-metric.featured { background: #344b68; border-color: #344b68; }
-.time-workspace .overlap-metric.featured > span,
-.time-workspace .overlap-metric.featured strong { color: #fff; }
-.time-workspace .overlap-metric.featured p,
-.time-workspace .overlap-metric.featured strong small { color: #d5dfec; }
 .time-workspace .overlap-chart-panel { background: #fff; border-color: #d8e0ea; border-radius: 18px; }
 .time-workspace .friends { background: #f6f8fa; }
 .time-workspace .friend { background: #fff; border: 1px solid #e0e6ed; box-shadow: none; }
@@ -159,18 +153,21 @@ body:has(.time-workspace), body:has(.place-workspace) { background: #eef1f5; }
 .place-workspace .place-confirmed-summary { background: #e3eaf3; border-color: #c4d1e1; }
 .place-workspace .place-confirmed-label { color: #344b68; }
 .place-workspace .place-confirmed-map iframe { background: #e1e7ef; border-color: #cbd5e2; }
-/* Latin letters, digits and basic numeric punctuation share Gaegu Bold.
-   Korean characters keep Jalnan. */
 @font-face {
   font-family: 'Gaegu';
   font-style: normal;
   font-weight: 100 900;
-  /* Keep Latin letters and digits at the same visual scale. */
   size-adjust: 125%;
   font-display: swap;
   src: url('https://fonts.gstatic.com/l/font?kit=TuGSUVB6Up9NU573jvw7-oRAL3wbGOj8-XlgbS9RPAAr3D04y2Gep1A8ieM5shFM2PIpu7FL9wZCrrpDjtzkzshbO8EYUWqh2CAT222AjyUT9R16GMxrEQ&skey=daec53040a5bfd39&v=v23')
     format('truetype');
   unicode-range: U+0025, U+0028-0029, U+002B-003A, U+0041-005A, U+0061-007A;
+}
+
+.brand,
+.footer-brand,
+.footer-copyright {
+  font-family: 'Gaegu', yg-jalnan, sans-serif;
 }
 
 @font-face {
@@ -512,8 +509,7 @@ body {
   background: linear-gradient(145deg, #eaf2ff, #f5f8ff 50%, #e5efff);
   color: var(--ink);
   font:
-    14px/1.6 'Gaegu',
-    yg-jalnan,
+    14px/1.6 yg-jalnan,
     sans-serif;
 }
 button,
@@ -894,7 +890,7 @@ main {
   margin: 8px 0 0;
   padding: 9px 13px;
   border-radius: 4px 14px 14px 14px;
-  background: #e7effb;
+  background: #fff;
   color: #526d94;
   font-size: 12px;
   font-weight: 500;
@@ -1225,11 +1221,21 @@ h2 {
   padding: 3px 5px;
 }
 .recommend-link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  min-width: 0;
   margin-top: auto;
-  padding-top: 8px;
   color: var(--blue-dark);
   font-size: 12px;
 }
+
+.recommend-link .member-identity {
+  min-width: 0;
+  margin: 0;
+}
+
 .confirmed-summary {
   display: flex;
   flex-wrap: wrap;
@@ -1851,49 +1857,6 @@ h2 {
 .results {
   margin-top: 20px;
 }
-.overlap-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin: 24px 0;
-}
-.overlap-metric {
-  min-width: 0;
-  padding: 20px 16px;
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  background: linear-gradient(145deg, #fff, #f1f6ff);
-}
-.overlap-metric.featured {
-  background: linear-gradient(145deg, #edf5ff, #dceaff);
-  border-color: #bdd6fc;
-}
-.overlap-metric > span {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--blue-dark);
-  font-size: 12px;
-}
-.overlap-metric strong {
-  display: block;
-  margin-top: 14px;
-  font-size: 30px;
-  line-height: 1.3;
-  color: var(--blue-dark);
-}
-.overlap-metric strong small {
-  font-size: 12px;
-  color: var(--muted);
-  font-weight: normal;
-  margin-left: 4px;
-}
-.overlap-metric p {
-  margin: 10px 0 0;
-  color: var(--muted);
-  font-size: 12px;
-  word-break: keep-all;
-}
 .overlap-chart-panel {
   padding: 22px 18px 16px;
   border: 1px solid var(--border);
@@ -2002,21 +1965,6 @@ h2 {
   margin-top: 16px;
 }
 @media (max-width: 650px) {
-  .overlap-metrics {
-    gap: 8px;
-  }
-  .overlap-metric {
-    padding: 14px 10px;
-    border-radius: 16px;
-  }
-  .overlap-metric > span {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-  .overlap-metric strong {
-    font-size: 24px;
-  }
   .overlap-chart-panel {
     padding: 18px 10px 14px;
   }
@@ -3007,7 +2955,7 @@ footer > small {
 .schedule-dashboard > .recommend { grid-area: recommend; margin: 0; padding: 24px; }
 .schedule-statistics { grid-area: statistics; }
 .schedule-dashboard .results { margin: 0; }
-.schedule-dashboard .card-heading { flex-wrap: wrap; }
+.schedule-dashboard .card-heading { flex-wrap: wrap; padding-bottom: 16px; }
 .schedule-dashboard .recommend-heading { align-items: flex-start; gap: 12px; }
 .schedule-dashboard .recommend-heading h2 { font-size: 18px; }
 .schedule-dashboard .recommend-heading p { margin-bottom: 0; }

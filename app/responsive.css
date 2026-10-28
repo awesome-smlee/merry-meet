@@ -166,11 +166,6 @@ html {
   .time-grid button { min-height: 66px; }
   .time-actions button { min-height: 44px; padding-inline: 8px; }
   .modal input, .place-form input { font-size: 16px; }
-  .overlap-metrics { grid-template-columns: minmax(0, 1fr); gap: 8px; }
-  .overlap-metric { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 14px; }
-  .overlap-metric > span { flex-direction: row; align-items: center; }
-  .overlap-metric strong { grid-column: 2; grid-row: 1 / 3; align-self: center; margin: 0; font-size: 24px; }
-  .overlap-metric p { margin: 0; font-size: 11px; word-break: normal; }
   .overlap-chart-panel { padding: 16px 8px; border-radius: 16px; }
   .stats-chart-heading { padding-inline: 4px; }
   .stats-chart-heading p { line-height: 1.7; }
