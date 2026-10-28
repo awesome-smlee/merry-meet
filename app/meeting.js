@@ -745,6 +745,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
                 <div className="recommend-shortlist">{recommendedDays.map(r => <div className="recommend-short-row recommend-option" key={r.slot} tabIndex={0}>
                   <div className="recommend-details">
                     <strong>{dateLabel(r.slot.slice(0, 10))} · {r.slot.split('|')[1]}</strong>
+                    <span className="recommend-attendees"><span>{r.count}명 가능 |</span>{members.filter((m) => m.responded && m.slots.includes(r.slot)).map((m) => <MemberIdentity key={m.id} member={m} />)}</span>
                   </div>
                   <div className="recommend-confirm-overlay">
                     <button type="button" className="confirm-action card-confirm" disabled={!me || busy || dirty} onClick={() => confirm(r.slot)}>
@@ -758,6 +759,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
                     <div key={r.slot} className={'recommend-option ' + (i === 0 ? 'best ' : '') + (pick === r.slot ? 'selected' : '')}>
                       <button className="recommend-choice" onClick={() => F(r.slot)} aria-pressed={pick === r.slot}>
                         <strong>{dateLabel(r.slot.slice(0, 10))} {r.slot.split('|')[1]}</strong>
+                        <span className="recommend-attendees"><span>{r.count}명 가능 |</span>{members.filter((m) => m.responded && m.slots.includes(r.slot)).map((m) => <MemberIdentity key={m.id} member={m} />)}</span>
                         <span className="recommend-link">
                           {pick === r.slot ? <Check aria-hidden="true" /> : null}
                         </span>
