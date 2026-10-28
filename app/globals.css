@@ -3021,6 +3021,10 @@ dialog.modal {
 .confirmed-focus-summary dt { flex-shrink: 0; color: var(--muted); font-size: 13px; }
 .confirmed-focus-summary dd { margin: 0; min-width: 0; font-size: clamp(18px, 2.5vw, 26px); font-weight: 600; letter-spacing: -.5px; }
 .confirmed-focus-actions { display: flex; flex-wrap: wrap; gap: 8px; flex-shrink: 0; }
+.confirmed-focus-actions > button { justify-content: center; gap: 7px; min-height: 44px; }
+.confirmed-focus-actions > button > svg { width: 16px; height: 16px; flex-shrink: 0; }
+.confirmed-focus-actions .final-share-button { background: #3479ed; border-color: #3479ed; color: white; }
+.confirmed-focus-actions .final-share-button:hover:not(:disabled) { background: #2a6bc0; border-color: #2a6bc0; }
 .confirmed-focus-members { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin: 16px 0 0; padding: 0; list-style: none; }
 .confirmed-focus-members li { min-width: 0; max-width: 100%; }
 .confirmed-focus-reset { flex-shrink: 0; margin-left: auto; }

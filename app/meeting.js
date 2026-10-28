@@ -1,5 +1,6 @@
 'use client';
 import FadeUpWrapper from './fade-up-wrapper';
+import CelebrationConfetti from './celebration-confetti';
 import { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import MeetingSkeleton, { PlaceSkeleton, StatisticsSkeleton } from './skeleton';
@@ -14,6 +15,7 @@ import {
   ArrowUpRight,
   ArrowUp,
   Copy,
+  Share2,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -54,6 +56,7 @@ const MeetingEvents = dynamic(() => import('./meeting-events'), { ssr: false });
 export default function Meeting({ configured, initialDate, holidayCalendar, roomCode, invitationToken, roomName = '우리 모임', createdRooms = [], onCreateMeeting, onDeleteMeeting, onInitialEntryComplete, animateJoin = false }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [votingSlot, setVotingSlot] = useState(null);
+  const [copyingFinal, setCopyingFinal] = useState(false);
   const [eventView, setEventView] = useState(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   useEffect(() => {
@@ -511,6 +514,27 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
       document.body.style.overflow = overflow;
     };
   }, [confirmOpen, state.confirmed]);
+  async function copyFinalMeeting() {
+    if (copyingFinal || !state.confirmed || !confirmedPlace) return;
+    setCopyingFinal(true);
+    E('');
+    const [date, time] = state.confirmed.split('|');
+    const text = [
+      `${roomName} · 최종 확정`,
+      `일정: ${date.slice(0, 4)}년 ${dateLabel(date)} ${time}`,
+      `장소: ${[confirmedPlace.region === '어디든 좋아요' ? '' : confirmedPlace.region, confirmedPlace.name].filter(Boolean).join(' · ')}`,
+      confirmedPlace.address && confirmedPlace.address !== confirmedPlace.region ? `주소: ${confirmedPlace.address}` : '',
+      confirmedPlace.url ? `지도: ${confirmedPlace.url}` : '',
+    ].filter(Boolean).join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      E('확정된 일정과 장소를 복사했어요.');
+    } catch {
+      E('복사하지 못했어요. 브라우저의 클립보드 권한을 확인하고 다시 시도해 주세요.');
+    } finally {
+      setCopyingFinal(false);
+    }
+  }
   async function share(copyOnly = false) {
     if (sharePending.current) return;
     sharePending.current = true;
@@ -629,6 +653,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
   </main>;
   return (
     <>
+      {state.confirmed && confirmedPlace && <CelebrationConfetti key={`${room}:${state.confirmed}:${confirmedPlace.id}`} />}
       <header className="topbar">
         <div className="topbar-heading">
         <a href={`?room=${encodeURIComponent(room)}`} className="brand">
@@ -676,8 +701,9 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
           ) : <p>{confirmedMembers.length}명 참여 예정 / 이제 만날 장소를 정해보세요.</p>}
         </div>
         {me && <div className="confirmed-focus-actions">
-          <button type="button" className="outline-button" disabled={busy || dirty || saveStatus === 'saving'} onClick={() => { if (scheduleEditOpen) { setScheduleEdit(null); F(''); } else openScheduleEdit(); }}>{scheduleEditOpen ? '변경 취소' : '일정 변경'}</button>
-          <button type="button" className="outline-button" disabled={!confirmedPlace || busy || dirty || saveStatus === 'saving'} onClick={openPlaceEdit}>장소 변경</button>
+          <button type="button" className="outline-button" disabled={busy || dirty || saveStatus === 'saving'} onClick={() => { if (scheduleEditOpen) { setScheduleEdit(null); F(''); } else openScheduleEdit(); }}>{scheduleEditOpen ? '변경 취소' : '일정 변경'}{scheduleEditOpen ? <XIcon aria-hidden="true" /> : <CalendarDays aria-hidden="true" />}</button>
+          <button type="button" className="outline-button" disabled={!confirmedPlace || busy || dirty || saveStatus === 'saving'} onClick={openPlaceEdit}>장소 변경<MapPin aria-hidden="true" /></button>
+          {confirmedPlace && <button type="button" className="outline-button final-share-button" disabled={copyingFinal} aria-busy={copyingFinal} onClick={copyFinalMeeting}>공유<span className="sr-only"> · 확정 일정과 장소 복사</span><Share2 aria-hidden="true" /></button>}
         </div>}
       </FadeUpWrapper>}
       <main className={showPlaces ? 'place-workspace' : 'time-workspace'}>
