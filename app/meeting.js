@@ -135,6 +135,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
   const latestState = useRef(state);
   latestState.current = state;
   const [step, setStep] = useState('time');
+  const initialStepSet = useRef(false);
   const [saveStatus, setSaveStatus] = useState('saved');
   const [welcomeName, setWelcomeName] = useState('');
   const welcomeDialog = useRef(null);
@@ -189,6 +190,10 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
       if (action === 'read' && (dirtyRef.current || savingRef.current))
         return data;
       S(data.state);
+      if (!initialStepSet.current && (action === 'read' || action === 'join')) {
+        setStep(data.state.confirmed ? 'place' : 'time');
+        initialStepSet.current = true;
+      }
       if (action === 'join') {
         // The join response already contains the member state needed to render the room.
         setInitialReadComplete(true);
@@ -222,6 +227,8 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
   }
   useEffect(() => {
     const day = koreaToday();
+    initialStepSet.current = false;
+    setStep('time');
     T(day);
     M(day.slice(0, 7));
     D(day);
@@ -232,6 +239,7 @@ export default function Meeting({ configured, initialDate, holidayCalendar, room
         const saved = JSON.parse(localStorage.getItem('mm-demo:' + r) || 'null');
         if (saved) {
           S(saved);
+          setStep(saved.confirmed ? 'place' : 'time');
           draftRef.current =
             saved.members.find((m) => m.id === saved.me)?.slots || [];
           V(draftRef.current);

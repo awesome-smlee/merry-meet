@@ -4,6 +4,17 @@ import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
 import { applyPlaceAction, validatePlacePayload } from '../lib/places.mjs';
 const candidate = { region: '서울', name: '성수 카페', address: '서울 성동구 성수동', url: 'https://naver.me/example' };
+test('place names without links generate distinct, valid map searches', () => {
+  const first = validatePlacePayload('place-add', { ...candidate, url: '' });
+  assert.equal(first.url, `https://map.naver.com/p/search/${encodeURIComponent('서울 성수 카페')}`);
+  assert.deepEqual(validatePlacePayload('place-add', first), first);
+  for (const url of [undefined, '   ']) {
+    assert.equal(validatePlacePayload('place-add', { ...candidate, url }).url, first.url);
+  }
+  const second = validatePlacePayload('place-add', { ...candidate, name: '다른 카페', url: '' });
+  assert.notEqual(first.url, second.url);
+  assert.throws(() => validatePlacePayload('place-add', { ...candidate, name: ' ', url: '' }));
+});
 test('place validation rejects unsafe links; demo votes replace and lock', () => {
   for (const url of ['javascript:alert(1)', 'https://naver.me.evil.com/x', 'https://naver.me@evil.com/x']) assert.throws(() => validatePlacePayload('place-add', { ...candidate, url }));
   let state = { members: [{ id: 'a' }], me: 'a', confirmed: null };
@@ -39,7 +50,9 @@ test('database persists place workflow, authenticates and clears place confirmat
     await call('region-vote', { region: '서울' });
     const region = await call('region-vote', { region: '대전' });
     assert.equal(region.regionVotes[joined.me], '대전');
-    const added = await call('place-add', candidate); const id = added.places[0].id;
+    const nameOnly = validatePlacePayload('place-add', { ...candidate, url: '' });
+    const added = await call('place-add', nameOnly); const id = added.places[0].id;
+    assert.equal(added.places[0].url, nameOnly.url);
     await call('place-vote', { id }); await call('place-vote', { id }, 'b');
     assert.equal(Object.keys((await call('read')).placeVotes).length, 2);
     const another = await call('place-add', { ...candidate, name: '다른 장소' });

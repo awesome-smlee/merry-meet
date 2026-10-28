@@ -28,7 +28,7 @@ export default function PlacePlanner({ state, busy, onAction, storageKey }) {
   const [input, setInput] = useState({ name: '', url: '' });
   const [linkTouched, setLinkTouched] = useState(false);
   let linkError = '';
-  if (input.url) {
+  if (input.url.trim()) {
     try { validatePlaceUrl(input.url); }
     catch (error) { linkError = error.message; }
   }
@@ -236,8 +236,8 @@ export default function PlacePlanner({ state, busy, onAction, storageKey }) {
         } catch (e) { setError(e.message); }
       }}>
         <label>장소 이름<input name="name" data-filled={!!input.name.trim()} required maxLength={60} placeholder="예: 성수 카페" disabled={!restored} value={input.name} onChange={event => setInput(current => ({ ...current, name: event.target.value }))} /></label>
-        <label>지도 링크<input name="url" data-filled={!!input.url.trim() && !linkError} type="url" required maxLength={500} placeholder="https://naver.me/…" disabled={!restored} value={input.url} onChange={event => { setInput(current => ({ ...current, url: event.target.value })); setLinkTouched(false); }} onBlur={() => setLinkTouched(true)} aria-invalid={showLinkError} aria-describedby={showLinkError ? 'place-map-link-error' : 'place-map-link-help'} />{showLinkError ? <span id="place-map-link-error" className="form-error" role="alert">{linkError}</span> : <span id="place-map-link-help" className="place-input-help">링크를 복사해 붙여 넣어 주세요.</span>}</label>
-        <button className="outline-button place-add-draft" disabled={locked || !input.name.trim() || !input.url.trim() || !!linkError}>장소 목록에 추가<Plus aria-hidden="true" /></button>
+        <label>지도 링크 (선택)<input name="url" data-filled={!!input.url.trim() && !linkError} type="url" maxLength={500} placeholder="https://naver.me/…" disabled={!restored} value={input.url} onChange={event => { setInput(current => ({ ...current, url: event.target.value })); setLinkTouched(false); }} onBlur={() => setLinkTouched(true)} aria-invalid={showLinkError} aria-describedby={showLinkError ? 'place-map-link-error' : 'place-map-link-help'} />{showLinkError ? <span id="place-map-link-error" className="form-error" role="alert">{linkError}</span> : <span id="place-map-link-help" className="place-input-help">이름만으로도 추가할 수 있어요. 링크가 없으면 지도에서 장소 이름을 검색해요.</span>}</label>
+        <button className="outline-button place-add-draft" disabled={locked || !input.name.trim() || !!linkError}>장소 목록에 추가<Plus aria-hidden="true" /></button>
       </form>
       {drafts.length > 0 && <div className="place-draft-list">
         <div className="place-draft-heading"><h4>등록할 장소 <span>{drafts.length}개</span></h4></div>
